@@ -1,0 +1,119 @@
+// animation diagrams/diagrams-registry.jsx
+// Shared registry of diagram plugins. Both the slide editor and the diagram
+// studios consume this object so they agree on ids, default tweaks, the
+// tweaks→props mapping and which window component renders each diagram.
+//
+// Each plugin must register itself here AND expose its renderer on `window`
+// (e.g. window.RouteDiagram). Add new diagrams by appending to GS_DIAGRAMS.
+
+(function () {
+  const REG = (window.GS_DIAGRAMS = window.GS_DIAGRAMS || {});
+
+  // ─── DIAG-001 · Animated Route ─────────────────────────────────────────────
+  REG.route = {
+    id: 'route',
+    label: 'Animated Route',
+    description: 'A bus traverses a parametric path, lighting up each stop. Optional battery overlay drains as it travels.',
+    icon: 'route',
+    galleryUrl: 'animation diagrams/Diagram Library.html',
+    studioUrl: 'animation diagrams/Route Diagram.html',
+    // Default tweak set — mirrors TWEAK_DEFAULTS in Route Diagram.html so that
+    // inserting from the gallery (without opening the studio) still produces a
+    // sensible diagram.
+    defaultTweaks: {
+      stopsCount: 5,
+      speed: 1,
+      pauseAtStops: true,
+      showLabels: true,
+      colorMode: 'brand',
+      busStyle: 'badge',
+      curvature: 0.55,
+      trackStyle: 'dashed',
+      showProgress: true,
+      loop: true,
+      showBattery: true,
+      batteryStart: 100,
+      batteryEnd: 5,
+      batteryHigh: 60,
+      batteryMid: 25,
+      stop1Label: 'Welcome',         stop1Caption: 'Account & access',
+      stop2Label: 'Training',        stop2Caption: 'Required modules',
+      stop3Label: 'Parametrization', stop3Caption: 'Operational config',
+      stop4Label: 'Configuration',   stop4Caption: 'Integrations & roles',
+      stop5Label: 'Support',         stop5Caption: 'SLA & deployment',
+      stop6Label: 'Go Live',         stop6Caption: 'Full rollout',
+      stop7Label: 'Operate',         stop7Caption: 'Continuous ops',
+      stop8Label: 'Optimize',        stop8Caption: 'KPIs & insights',
+    },
+    // Convert the studio tweak object (flat keys with stopNLabel/stopNCaption)
+    // into the props that <RouteDiagram> expects.
+    tweaksToProps(t) {
+      t = t || {};
+      const n = Math.max(1, parseInt(t.stopsCount, 10) || 5);
+      const stops = Array.from({ length: n }, (_, i) => ({
+        id: `s${i + 1}`,
+        label:   t[`stop${i + 1}Label`]   || `Stop ${i + 1}`,
+        caption: t[`stop${i + 1}Caption`] || '',
+      }));
+      return {
+        stops,
+        speed:        t.speed,
+        pauseAtStops: t.pauseAtStops,
+        showLabels:   t.showLabels,
+        colorMode:    t.colorMode,
+        busStyle:     t.busStyle,
+        curvature:    t.curvature,
+        trackStyle:   t.trackStyle,
+        showProgress: t.showProgress,
+        loop:         t.loop,
+        showBattery:  t.showBattery,
+        batteryStart: t.batteryStart,
+        batteryEnd:   t.batteryEnd,
+        batteryHigh:  t.batteryHigh,
+        batteryMid:   t.batteryMid,
+      };
+    },
+    // Resolve the renderer at call time (the plugin script may load after this
+    // registry runs).
+    getComponent() { return window.RouteDiagram; },
+  };
+})();
+
+// ─── postMessage protocol (between editor host and library/studio iframes) ──
+// Editor → iframe (optional, sent on iframe load):
+//   { type: 'gs:diagram-pick:hello', currentDiagramId, currentTweaks }
+// Iframe → editor:
+//   { type: 'gs:diagram-pick:select', diagramId, tweaks }
+//   { type: 'gs:diagram-pick:cancel' }
+//   { type: 'gs:diagram-pick:nav',    diagramId }   // gallery → studio
+//
+// Studios load initial tweaks from location.hash:
+//   #tweaks=<encodeURIComponent(JSON.stringify(tweaks))>
+window.GS_DIAGRAM_PICK = {
+  parseTweaksHash() {
+    try {
+      const m = (location.hash || '').match(/(?:^#|&)tweaks=([^&]+)/);
+      if (!m) return null;
+      return JSON.parse(decodeURIComponent(m[1]));
+    } catch (e) { return null; }
+  },
+  buildTweaksHash(tweaks) {
+    return '#tweaks=' + encodeURIComponent(JSON.stringify(tweaks || {}));
+  },
+  fromEditor() {
+    return /(?:^|[?&])from=editor(?:&|$)/.test(location.search || '');
+  },
+  postSelect(diagramId, tweaks) {
+    try {
+      window.parent.postMessage({ type: 'gs:diagram-pick:select', diagramId, tweaks }, '*');
+    } catch (e) { /* ignore */ }
+  },
+  postCancel() {
+    try { window.parent.postMessage({ type: 'gs:diagram-pick:cancel' }, '*'); }
+    catch (e) { /* ignore */ }
+  },
+  postNav(diagramId, tweaks) {
+    try { window.parent.postMessage({ type: 'gs:diagram-pick:nav', diagramId, tweaks }, '*'); }
+    catch (e) { /* ignore */ }
+  },
+};

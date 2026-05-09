@@ -188,7 +188,7 @@ function SlideTree({ slide, selPath, selMulti, onSelectPath, onSetMulti, lang, a
   const BLOCK_ICONS = {
     title:'title', text:'notes', checklist:'checklist', timeline:'linear_scale',
     metrics:'monitoring', table:'table_chart', chart:'bar_chart', cta:'smart_button',
-    divider:'horizontal_rule', image:'image', empty:'crop_square',
+    divider:'horizontal_rule', image:'image', empty:'crop_square', diagram:'animation',
   };
 
   // Only top-level cells participate in multi-select (for simplicity)
@@ -332,7 +332,7 @@ function MultiEditPanel({ project, slideIdx, selMulti, onUpdateCell, lang, accen
 
   const BLOCK_ICONS = { title:'title', text:'notes', checklist:'checklist', timeline:'linear_scale',
     metrics:'monitoring', table:'table_chart', chart:'bar_chart', cta:'smart_button',
-    divider:'horizontal_rule', image:'image', empty:'crop_square' };
+    divider:'horizontal_rule', image:'image', empty:'crop_square', diagram:'animation' };
 
   return (
     <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14, overflow: 'auto', flex: 1 }}>
@@ -788,6 +788,10 @@ function PropertiesPanel({ project, slideIdx, selPath, onUpdateCell, onUpdateSli
                 <Label>Caption</Label>
                 <Input value={content.caption} onChange={v => setContent({ caption: v })} placeholder="Image caption…"/>
               </>}
+
+              {cell.block === 'diagram' && (
+                <DiagramConfigEditor content={content} setContent={setContent} accent={accent}/>
+              )}
 
               {cell.block === 'empty' && (
                 <p style={{ fontSize: 11, color: '#464a6c', lineHeight: 1.6 }}>Select a block type above to add content.</p>
@@ -1405,6 +1409,159 @@ ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(
   a.download = `${(project.meta.clientName || 'presentation').replace(/\s+/g,'-').toLowerCase()}-slides.html`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ─── Diagram picker (iframe modal — keeps the editor and cell context loaded) ─
+function DiagramPickerModal({ mode, currentDiagramId, currentTweaks, onPick, onClose }) {
+  const reg = (typeof window !== 'undefined' && window.GS_DIAGRAMS) || null;
+  const def = currentDiagramId && reg ? reg[currentDiagramId] : null;
+
+  // Build the iframe src: studio (configure) or gallery (gallery / replace).
+  let src;
+  if (mode === 'configure' && def) {
+    const tweaks = currentTweaks && Object.keys(currentTweaks).length ? currentTweaks : (def.defaultTweaks || {});
+    const hash = '#tweaks=' + encodeURIComponent(JSON.stringify(tweaks));
+    src = def.studioUrl + '?from=editor' + hash;
+  } else {
+    const galleryUrl = (reg && reg.route && reg.route.galleryUrl) || 'animation diagrams/Diagram Library.html';
+    src = galleryUrl + '?from=editor';
+  }
+
+  // Listen for messages from the iframe.
+  useE(() => {
+    const onMsg = (e) => {
+      const m = e.data;
+      if (!m || typeof m !== 'object') return;
+      if (m.type === 'gs:diagram-pick:select') {
+        if (m.diagramId) onPick(m.diagramId, m.tweaks || {});
+      } else if (m.type === 'gs:diagram-pick:cancel') {
+        onClose();
+      }
+      // 'gs:diagram-pick:nav' is handled inside the iframe's own page script
+      // (the gallery navigates to the studio); the editor doesn't need to act.
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  // Esc closes
+  useE(() => {
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); onClose(); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,5,0.92)', zIndex: 9500,
+      display: 'flex', flexDirection: 'column',
+    }}>
+      {/* Header — keeps cell breadcrumb-ish indicator and a clear cancel */}
+      <div style={{
+        height: 48, flexShrink: 0, background: '#0a0e22',
+        borderBottom: '1px solid #1c2341',
+        display: 'flex', alignItems: 'center', padding: '0 16px', gap: 12,
+      }}>
+        <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#42dcc6', fontVariationSettings: "'FILL' 0,'wght' 300" }}>animation</span>
+        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#42dcc6', textTransform: 'uppercase' }}>
+          {mode === 'configure' ? 'Configure diagram' : (def ? 'Replace diagram' : 'Insert diagram')}
+        </span>
+        {def && <span style={{ fontSize: 10, color: '#859490', letterSpacing: '0.06em' }}>· {def.label}</span>}
+        <span style={{ flex: 1 }}/>
+        <span style={{ fontSize: 9, color: '#464a6c', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Esc to cancel</span>
+        <button onClick={onClose}
+          style={{
+            background: 'transparent', border: '1px solid #464a6c', color: '#bbcac5',
+            padding: '5px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center',
+            gap: 6, fontFamily: 'Space Grotesk', fontSize: 10, fontWeight: 700,
+            letterSpacing: '0.08em', textTransform: 'uppercase',
+          }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 14, fontVariationSettings: "'FILL' 0,'wght' 300" }}>close</span>
+          Cancel
+        </button>
+      </div>
+      <iframe title="Diagram library" src={src}
+        style={{ flex: 1, border: 'none', background: '#00001b', width: '100%' }}/>
+    </div>
+  );
+}
+
+// ─── Diagram block — Properties pane editor ─────────────────────────────────
+function DiagramConfigEditor({ content, setContent, accent }) {
+  const [pickerMode, setPickerMode] = useS(null); // null | 'gallery' | 'configure'
+  const reg = (typeof window !== 'undefined' && window.GS_DIAGRAMS) || null;
+  const diagramId = content && content.diagramId;
+  const def = diagramId && reg ? reg[diagramId] : null;
+
+  const open = (mode) => setPickerMode(mode);
+  const close = () => setPickerMode(null);
+  const handlePick = (id, tweaks) => {
+    setContent({ diagramId: id, tweaks: tweaks || {} });
+    setPickerMode(null);
+  };
+
+  const btn = (active, danger) => ({
+    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+    padding: '8px 10px', cursor: 'pointer',
+    background: active ? 'rgba(66,220,198,0.10)' : danger ? 'rgba(255,119,117,0.08)' : '#0d1228',
+    border: `1px solid ${active ? accent : danger ? '#ff7775' : '#464a6c'}`,
+    color: active ? accent : danger ? '#ff7775' : '#bbcac5',
+    fontFamily: 'Space Grotesk', fontSize: 10, fontWeight: 700,
+    letterSpacing: '0.08em', textTransform: 'uppercase',
+  });
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {!def ? (
+        <>
+          <p style={{ fontSize: 10, color: '#859490', lineHeight: 1.6 }}>
+            Pick a parametric animation from the library. The editor stays open behind it.
+          </p>
+          <button style={btn(true, false)} onClick={() => open('gallery')}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>animation</span>
+            Open Diagram Library
+          </button>
+        </>
+      ) : (
+        <>
+          <div style={{
+            background: '#0d1228', border: '1px solid #1c2341',
+            padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 22, color: accent, fontVariationSettings: "'FILL' 0,'wght' 300" }}>{def.icon || 'animation'}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#dde4e1' }}>{def.label}</div>
+              <div style={{ fontSize: 9, color: '#859490', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                ID: {diagramId}
+              </div>
+            </div>
+          </div>
+          <button style={btn(true, false)} onClick={() => open('configure')}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>tune</span>
+            Configure
+          </button>
+          <button style={btn(false, false)} onClick={() => open('gallery')}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>swap_horiz</span>
+            Replace
+          </button>
+          <button style={btn(false, true)} onClick={() => setContent({ diagramId: null, tweaks: {} })}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>delete</span>
+            Remove
+          </button>
+        </>
+      )}
+
+      {pickerMode && (
+        <DiagramPickerModal
+          mode={pickerMode}
+          currentDiagramId={diagramId}
+          currentTweaks={content && content.tweaks}
+          onPick={handlePick}
+          onClose={close}
+        />
+      )}
+    </div>
+  );
 }
 
 // ─── Autosave badge ──────────────────────────────────────────────────────────
