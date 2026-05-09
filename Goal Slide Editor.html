@@ -16,6 +16,10 @@
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: #464a6c; border-radius: 2px; }
+  /* Side toolbar — keep scrollbar always visible (thin) so users see overflow */
+  .gs-side-scroll::-webkit-scrollbar { width: 4px; }
+  .gs-side-scroll::-webkit-scrollbar-thumb { background: #2a3060; border-radius: 2px; }
+  .gs-side-scroll::-webkit-scrollbar-thumb:hover { background: #42dcc6; }
   .material-symbols-outlined {
     font-family: 'Material Symbols Outlined'; font-weight: normal; font-style: normal;
     line-height: 1; letter-spacing: normal; text-transform: none; white-space: nowrap;
