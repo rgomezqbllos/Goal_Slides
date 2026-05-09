@@ -107,6 +107,79 @@
     // registry runs).
     getComponent() { return window.RouteDiagram; },
   };
+
+  // ─── DIAG-003 · KPI Counter ────────────────────────────────────────────────
+  REG.kpi = {
+    id: 'kpi',
+    label: 'KPI Counter',
+    description: 'Animated number ticker for headline metrics. Ramps from a start to a target value while crossing user-defined color thresholds.',
+    icon: 'speed',
+    galleryUrl: 'animation diagrams/Diagram Library.html',
+    studioUrl:  'animation diagrams/KPI Counter.html',
+    defaultTweaks: {
+      from: 0,
+      to: 94.7,
+      duration: 2000,
+      decimals: 1,
+      format: 'number',          // number | integer | time | date
+      prefix: '',
+      suffix: '%',
+      caption: 'On-time arrivals',
+      size: 'xl',                // sm | md | lg | xl
+      align: 'center',
+      easing: 'ease-out',         // linear | ease-in | ease-out | ease-in-out
+      showProgress: false,
+      colorStops: [
+        { at: 0,  color: '#ff7775' },
+        { at: 60, color: '#fae374' },
+        { at: 85, color: '#83e287' },
+        { at: 95, color: '#42dcc6' },
+      ],
+    },
+    tweaksToProps(t) {
+      t = t || {};
+      return {
+        from:         parseFloat(t.from)         || 0,
+        to:           parseFloat(t.to)           || 0,
+        duration:     parseInt(t.duration, 10)   || 0,
+        decimals:     parseInt(t.decimals, 10)   || 0,
+        format:       t.format       || 'number',
+        prefix:       t.prefix       || '',
+        suffix:       t.suffix       || '',
+        caption:      t.caption      || '',
+        size:         t.size         || 'lg',
+        align:        t.align        || 'center',
+        easing:       t.easing       || 'ease-out',
+        showProgress: !!t.showProgress,
+        colorStops:   Array.isArray(t.colorStops) ? t.colorStops : [],
+      };
+    },
+    schema: [
+      { type:'section', label:'Value' },
+      { type:'number',  key:'from',     label:'From',     min:-1000000, max:1000000, step:0.1 },
+      { type:'number',  key:'to',       label:'To',       min:-1000000, max:1000000, step:0.1 },
+      { type:'select',  key:'format',   label:'Format',   options:['number','integer','time','date'] },
+      { type:'number',  key:'decimals', label:'Decimals', min:0, max:6, step:1 },
+      { type:'string',  key:'prefix',   label:'Prefix' },
+      { type:'string',  key:'suffix',   label:'Suffix' },
+
+      { type:'section', label:'Animation' },
+      { type:'number',  key:'duration',     label:'Duration (ms)', min:0, max:10000, step:50 },
+      { type:'select',  key:'easing',       label:'Easing', options:['linear','ease-in','ease-out','ease-in-out'] },
+      { type:'boolean', key:'showProgress', label:'Show progress bar' },
+
+      { type:'section', label:'Style' },
+      { type:'select',  key:'size',  label:'Size',  options:['sm','md','lg','xl'] },
+      { type:'select',  key:'align', label:'Align', options:['left','center','right'] },
+
+      { type:'section', label:'Color thresholds' },
+      { type:'colorStops', key:'colorStops', label:'Stops (≥ value → color)' },
+
+      { type:'section', label:'Caption' },
+      { type:'string', key:'caption', label:'Caption text' },
+    ],
+    getComponent() { return window.KPICounter; },
+  };
 })();
 
 // ─── postMessage protocol (between editor host and library/studio iframes) ──

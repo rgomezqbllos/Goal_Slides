@@ -1733,6 +1733,88 @@ function DiagramTweaksForm({ def, tweaks, setTweaks, accent }) {
             </div>
           );
         }
+        if (f.type === 'string') {
+          return (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: 10, color: '#bbcac5' }}>{f.label}</span>
+              <input type="text"
+                value={v ?? ''}
+                placeholder={f.placeholder || ''}
+                onChange={e => setField(f.key, e.target.value)}
+                style={{
+                  background: '#0d1228', border: '1px solid #1c2341', color: '#dde4e1',
+                  fontFamily: 'Space Grotesk', fontSize: 11,
+                  padding: '6px 9px', outline: 'none',
+                }}/>
+            </div>
+          );
+        }
+        if (f.type === 'colorStops') {
+          // Editable list of { at: number, color: '#hex' } sorted ascending.
+          const list = Array.isArray(v) ? [...v] : [];
+          const update = (next) => {
+            // Sort ascending by `at` so animations cross stops in order.
+            const sorted = next.slice().sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
+            setField(f.key, sorted);
+          };
+          const updateAt    = (idx, key, value) =>
+            update(list.map((s, i) => i === idx ? { ...s, [key]: value } : s));
+          const removeAt    = (idx) => update(list.filter((_, i) => i !== idx));
+          const addStop     = () => {
+            const last = list[list.length - 1] || { at: 0, color: '#42dcc6' };
+            const next = [...list, { at: (last.at ?? 0) + 10, color: last.color }];
+            update(next);
+          };
+          return (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ fontSize: 10, color: '#bbcac5' }}>{f.label}</span>
+              {list.map((s, idx) => (
+                <div key={idx} style={{
+                  background: '#0d1228', border: '1px solid #1c2341',
+                  padding: '6px 8px', display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                  <span style={{ fontSize: 9, color: '#859490', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                    ≥
+                  </span>
+                  <input type="number"
+                    value={Number.isFinite(+s.at) ? s.at : 0}
+                    onChange={e => updateAt(idx, 'at', parseFloat(e.target.value) || 0)}
+                    style={{
+                      width: 64, background: '#00001b', border: '1px solid #1c2341',
+                      color: '#dde4e1', fontFamily: 'Space Grotesk', fontSize: 11,
+                      padding: '4px 6px', outline: 'none', textAlign: 'right',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}/>
+                  <input type="color"
+                    value={s.color || '#42dcc6'}
+                    onChange={e => updateAt(idx, 'color', e.target.value)}
+                    title={s.color}
+                    style={{
+                      width: 32, height: 22, padding: 0, cursor: 'pointer',
+                      background: '#00001b', border: '1px solid #1c2341',
+                    }}/>
+                  <span style={{ flex: 1, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#859490', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {s.color}
+                  </span>
+                  <button onClick={() => removeAt(idx)}
+                    title="Remove this stop"
+                    style={{
+                      background: 'transparent', border: 'none', color: '#ff7775',
+                      cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center',
+                    }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 14, fontVariationSettings: "'FILL' 0,'wght' 300" }}>close</span>
+                  </button>
+                </div>
+              ))}
+              <button onClick={addStop} style={{
+                background: 'none', border: '1px dashed #464a6c', color: accent,
+                cursor: 'pointer', padding: '5px 8px',
+                fontFamily: 'Space Grotesk', fontSize: 10, fontWeight: 700,
+                letterSpacing: '0.08em', textTransform: 'uppercase',
+              }}>+ Add stop</button>
+            </div>
+          );
+        }
         return null;
       })}
     </div>
