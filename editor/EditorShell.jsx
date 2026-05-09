@@ -924,7 +924,7 @@ function PropertiesPanel({ project, slideIdx, selPath, onUpdateCell, onUpdateSli
               </>}
 
               {cell.block === 'diagram' && (
-                <DiagramConfigEditor content={content} setContent={setContent} accent={accent}/>
+                <DiagramConfigEditor content={content} setContent={setContent} accent={accent} lang={lang}/>
               )}
 
               {cell.block === 'empty' && (
@@ -1620,8 +1620,21 @@ function DiagramPickerModal({ mode, currentDiagramId, currentTweaks, onPick, onC
   );
 }
 
+// Resolve a label that may be a plain string OR a per-locale map { en, es, … }.
+function tlabel(label, lang) {
+  if (label == null) return '';
+  if (typeof label === 'string') return label;
+  return label[lang] || label.en || label[Object.keys(label)[0]] || '';
+}
+function toptionLabel(field, opt, lang) {
+  const m = field && field.optionLabels && field.optionLabels[opt];
+  if (!m) return String(opt);
+  if (typeof m === 'string') return m;
+  return m[lang] || m.en || String(opt);
+}
+
 // ─── Schema-driven inline tweaks form (for diagram blocks) ──────────────────
-function DiagramTweaksForm({ def, tweaks, setTweaks, accent }) {
+function DiagramTweaksForm({ def, tweaks, setTweaks, accent, lang = 'en' }) {
   const schema = (def && def.schema) || [];
   if (schema.length === 0) {
     return (
@@ -1645,24 +1658,48 @@ function DiagramTweaksForm({ def, tweaks, setTweaks, accent }) {
               textTransform: 'uppercase', color: accent,
               marginTop: i === 0 ? 0 : 4, paddingTop: i === 0 ? 0 : 6,
               borderTop: i === 0 ? 'none' : '1px solid #1c2341',
-            }}>{f.label}</div>
+            }}>{tlabel(f.label, lang)}</div>
           );
         }
         const v = merged[f.key];
         if (f.type === 'number') {
+          // Default to a precise numeric input. A field can opt into a slider
+          // with `slider: true` (e.g. curvature 0..1) but typing is the norm.
+          const useSlider = !!f.slider;
           const decimals = (f.step && f.step < 1) ? 2 : 0;
           return (
-            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 10, color: '#bbcac5' }}>{f.label}</span>
-                <span style={{ fontSize: 10, color: accent, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-                  {Number.isFinite(+v) ? Number(v).toFixed(decimals) : '—'}
-                </span>
+                <span style={{ fontSize: 10, color: '#bbcac5' }}>{tlabel(f.label, lang)}</span>
+                {useSlider && (
+                  <span style={{ fontSize: 10, color: accent, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                    {Number.isFinite(+v) ? Number(v).toFixed(decimals) : '—'}
+                  </span>
+                )}
               </div>
-              <input type="range" min={f.min} max={f.max} step={f.step}
-                value={Number.isFinite(+v) ? +v : f.min}
-                onChange={e => setField(f.key, parseFloat(e.target.value))}
-                style={{ width: '100%', accentColor: accent, cursor: 'pointer' }}/>
+              {useSlider ? (
+                <input type="range" min={f.min} max={f.max} step={f.step}
+                  value={Number.isFinite(+v) ? +v : f.min}
+                  onChange={e => setField(f.key, parseFloat(e.target.value))}
+                  style={{ width: '100%', accentColor: accent, cursor: 'pointer' }}/>
+              ) : (
+                <input type="number" min={f.min} max={f.max} step={f.step}
+                  value={Number.isFinite(+v) ? v : ''}
+                  placeholder={f.placeholder || ''}
+                  onChange={e => {
+                    const raw = e.target.value;
+                    if (raw === '') { setField(f.key, undefined); return; }
+                    const n = parseFloat(raw);
+                    if (Number.isFinite(n)) setField(f.key, n);
+                  }}
+                  style={{
+                    width: '100%', textAlign: 'right',
+                    background: '#0d1228', border: '1px solid #1c2341',
+                    color: accent, fontFamily: 'Space Grotesk',
+                    fontSize: 12, fontWeight: 700, padding: '6px 9px',
+                    outline: 'none', fontVariantNumeric: 'tabular-nums',
+                  }}/>
+              )}
             </div>
           );
         }
@@ -1672,7 +1709,7 @@ function DiagramTweaksForm({ def, tweaks, setTweaks, accent }) {
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               cursor: 'pointer', padding: '2px 0',
             }}>
-              <span style={{ fontSize: 10, color: '#bbcac5' }}>{f.label}</span>
+              <span style={{ fontSize: 10, color: '#bbcac5' }}>{tlabel(f.label, lang)}</span>
               <input type="checkbox" checked={!!v}
                 onChange={e => setField(f.key, e.target.checked)}
                 style={{ accentColor: accent, width: 14, height: 14, cursor: 'pointer' }}/>
@@ -1682,7 +1719,7 @@ function DiagramTweaksForm({ def, tweaks, setTweaks, accent }) {
         if (f.type === 'select') {
           return (
             <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={{ fontSize: 10, color: '#bbcac5' }}>{f.label}</span>
+              <span style={{ fontSize: 10, color: '#bbcac5' }}>{tlabel(f.label, lang)}</span>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 {f.options.map(opt => (
                   <button key={opt} onClick={() => setField(f.key, opt)} style={{
@@ -1692,7 +1729,7 @@ function DiagramTweaksForm({ def, tweaks, setTweaks, accent }) {
                     border: `1px solid ${v === opt ? accent : '#464a6c'}`,
                     background: v === opt ? 'rgba(66,220,198,0.10)' : '#0d1228',
                     color: v === opt ? accent : '#bbcac5',
-                  }}>{opt}</button>
+                  }}>{toptionLabel(f, opt, lang)}</button>
                 ))}
               </div>
             </div>
@@ -1702,9 +1739,12 @@ function DiagramTweaksForm({ def, tweaks, setTweaks, accent }) {
           const count = Math.max(0, parseInt(merged[f.countKey], 10) || 0);
           const labelKey   = (n) => (f.labelKeyPattern   || 'stop{N}Label').replace('{N}', n);
           const captionKey = (n) => (f.captionKeyPattern || 'stop{N}Caption').replace('{N}', n);
+          const i18n = (f.i18n && (f.i18n[lang] || f.i18n.en)) || {};
+          const headerWord = i18n.header || 'Stop';
+          const placeholderTpl = i18n.placeholder || `${headerWord} %s label`;
           return (
             <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span style={{ fontSize: 10, color: '#bbcac5' }}>{f.label}</span>
+              <span style={{ fontSize: 10, color: '#bbcac5' }}>{tlabel(f.label, lang)}</span>
               {Array.from({ length: count }, (_, idx) => {
                 const n = idx + 1;
                 return (
@@ -1713,17 +1753,17 @@ function DiagramTweaksForm({ def, tweaks, setTweaks, accent }) {
                     padding: '7px 9px', display: 'flex', flexDirection: 'column', gap: 4,
                   }}>
                     <div style={{ fontSize: 9, color: '#859490', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                      Stop #{n}
+                      {headerWord} #{n}
                     </div>
                     <input type="text"
                       value={merged[labelKey(n)] || ''}
-                      placeholder={`Stop ${n} label`}
+                      placeholder={placeholderTpl.replace('%s', n)}
                       onChange={e => setField(labelKey(n), e.target.value)}
                       style={{ background: '#00001b', border: '1px solid #1c2341', color: '#dde4e1',
                         fontFamily: 'Space Grotesk', fontSize: 11, padding: '5px 8px', outline: 'none' }}/>
                     <input type="text"
                       value={merged[captionKey(n)] || ''}
-                      placeholder="Caption"
+                      placeholder={i18n.captionPlaceholder || (lang === 'es' ? 'Subtítulo' : 'Caption')}
                       onChange={e => setField(captionKey(n), e.target.value)}
                       style={{ background: '#00001b', border: '1px solid #1c2341', color: '#bbcac5',
                         fontFamily: 'Space Grotesk', fontSize: 10, padding: '5px 8px', outline: 'none' }}/>
@@ -1736,7 +1776,7 @@ function DiagramTweaksForm({ def, tweaks, setTweaks, accent }) {
         if (f.type === 'string') {
           return (
             <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={{ fontSize: 10, color: '#bbcac5' }}>{f.label}</span>
+              <span style={{ fontSize: 10, color: '#bbcac5' }}>{tlabel(f.label, lang)}</span>
               <input type="text"
                 value={v ?? ''}
                 placeholder={f.placeholder || ''}
@@ -1767,7 +1807,7 @@ function DiagramTweaksForm({ def, tweaks, setTweaks, accent }) {
           };
           return (
             <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span style={{ fontSize: 10, color: '#bbcac5' }}>{f.label}</span>
+              <span style={{ fontSize: 10, color: '#bbcac5' }}>{tlabel(f.label, lang)}</span>
               {list.map((s, idx) => (
                 <div key={idx} style={{
                   background: '#0d1228', border: '1px solid #1c2341',
@@ -1811,7 +1851,7 @@ function DiagramTweaksForm({ def, tweaks, setTweaks, accent }) {
                 cursor: 'pointer', padding: '5px 8px',
                 fontFamily: 'Space Grotesk', fontSize: 10, fontWeight: 700,
                 letterSpacing: '0.08em', textTransform: 'uppercase',
-              }}>+ Add stop</button>
+              }}>{lang === 'es' ? '+ Añadir umbral' : '+ Add stop'}</button>
             </div>
           );
         }
@@ -1822,7 +1862,22 @@ function DiagramTweaksForm({ def, tweaks, setTweaks, accent }) {
 }
 
 // ─── Diagram block — Properties pane editor ─────────────────────────────────
-function DiagramConfigEditor({ content, setContent, accent }) {
+function DiagramConfigEditor({ content, setContent, accent, lang = 'en' }) {
+  const T = (lang === 'es') ? {
+    pickAnim:       'Elige una animación paramétrica de la biblioteca. El editor permanece abierto detrás.',
+    openLibrary:    'Abrir biblioteca de diagramas',
+    openStudio:     'Abrir studio visual',
+    resetDefaults:  'Restablecer por defecto',
+    replaceDiagram: 'Reemplazar diagrama',
+    remove:         'Quitar',
+  } : {
+    pickAnim:       'Pick a parametric animation from the library. The editor stays open behind it.',
+    openLibrary:    'Open Diagram Library',
+    openStudio:     'Open visual studio',
+    resetDefaults:  'Reset to defaults',
+    replaceDiagram: 'Replace diagram',
+    remove:         'Remove',
+  };
   const [pickerMode, setPickerMode] = useS(null); // null | 'gallery' | 'configure'
   const reg = (typeof window !== 'undefined' && window.GS_DIAGRAMS) || null;
   const diagramId = content && content.diagramId;
@@ -1850,11 +1905,11 @@ function DiagramConfigEditor({ content, setContent, accent }) {
       {!def ? (
         <>
           <p style={{ fontSize: 10, color: '#859490', lineHeight: 1.6 }}>
-            Pick a parametric animation from the library. The editor stays open behind it.
+            {T.pickAnim}
           </p>
           <button style={btn(true, false)} onClick={() => open('gallery')}>
             <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>animation</span>
-            Open Diagram Library
+            {T.openLibrary}
           </button>
         </>
       ) : (
@@ -1865,7 +1920,7 @@ function DiagramConfigEditor({ content, setContent, accent }) {
           }}>
             <span className="material-symbols-outlined" style={{ fontSize: 22, color: accent, fontVariationSettings: "'FILL' 0,'wght' 300" }}>{def.icon || 'animation'}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#dde4e1' }}>{def.label}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#dde4e1' }}>{tlabel(def.label, lang)}</div>
               <div style={{ fontSize: 9, color: '#859490', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 ID: {diagramId}
               </div>
@@ -1877,26 +1932,27 @@ function DiagramConfigEditor({ content, setContent, accent }) {
             tweaks={content && content.tweaks}
             setTweaks={(next) => setContent({ ...content, tweaks: next })}
             accent={accent}
+            lang={lang}
           />
 
           <div style={{ borderTop: '1px solid #1c2341', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
             <button style={btn(false, false)} onClick={() => open('configure')}
-              title="Open the visual studio for this diagram in a modal">
+              title={T.openStudio}>
               <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>open_in_new</span>
-              Open visual studio
+              {T.openStudio}
             </button>
             <button style={btn(false, false)} onClick={() => setContent({ ...content, tweaks: { ...(def.defaultTweaks || {}) } })}
-              title="Reset all parameters to the diagram defaults">
+              title={T.resetDefaults}>
               <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>restart_alt</span>
-              Reset to defaults
+              {T.resetDefaults}
             </button>
             <button style={btn(false, false)} onClick={() => open('gallery')}>
               <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>swap_horiz</span>
-              Replace diagram
+              {T.replaceDiagram}
             </button>
             <button style={btn(false, true)} onClick={() => setContent({ diagramId: null, tweaks: {} })}>
               <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>delete</span>
-              Remove
+              {T.remove}
             </button>
           </div>
         </>
