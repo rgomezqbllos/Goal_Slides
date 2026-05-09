@@ -1082,16 +1082,27 @@ function SideBlockToolbar({ slide, slideIdx, selPath, onReplaceSlide, onSelectPa
     </div>
   );
 
+  // Compact, unbounded scale stepper. No upper limit — the user keeps clicking +.
+  const stepScale = (delta) => {
+    const cur = cell && cell.fontSize ? cell.fontSize : 1;
+    const next = Math.max(0.1, +(cur + delta).toFixed(2));
+    onScaleChange && onScaleChange(next);
+  };
+  const setScale = (pct) => {
+    const v = Math.max(10, parseInt(pct, 10) || 100); // min 10%, no upper bound
+    onScaleChange && onScaleChange(+(v / 100).toFixed(2));
+  };
+
   return (
     <div style={{
-      width: 52, flexShrink: 0,
+      width: 60, flexShrink: 0,
       borderLeft: '1px solid #1c2341', borderRight: '1px solid #1c2341',
       background: '#06091a', display: 'flex', flexDirection: 'column',
-      overflow: 'hidden', userSelect: 'none',
+      overflow: 'hidden', userSelect: 'none', position: 'relative',
     }}>
-      {/* Header badge */}
+      {/* Header badge — sticky so it stays visible when tools scroll */}
       <div title={validSel ? `${isContainer ? 'Container' : 'Block'} · ${levelLabel} › R${curRi+1}·C${curCi+1}` : 'Select a cell'}
-        style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, borderBottom: '1px solid #11162d' }}>
+        style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, borderBottom: '1px solid #11162d', background: '#06091a', flexShrink: 0, zIndex: 2 }}>
         <span className="material-symbols-outlined" style={{ fontSize: 18, color: validSel ? '#42dcc6' : '#3b426b', fontVariationSettings: "'FILL' 0,'wght' 300" }}>
           {validSel ? (isContainer ? 'grid_view' : 'widgets') : 'crop_free'}
         </span>
@@ -1107,74 +1118,80 @@ function SideBlockToolbar({ slide, slideIdx, selPath, onReplaceSlide, onSelectPa
         </div>
       )}
 
-      {/* Tools — only when selected */}
+      {/* Tools — only when selected. Always-visible scrollbar so users know there's more. */}
       {validSel && (
-        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+        <div className="gs-side-scroll" style={{
+          flex: 1, overflowY: 'auto', overflowX: 'hidden',
+          padding: '4px 0 12px', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', gap: 4,
+          scrollbarWidth: 'thin', scrollbarColor: '#2a3060 transparent',
+        }}>
 
           {/* SPLIT — leaf only */}
           {isLeaf && <>
             <SectionTitle>Split</SectionTitle>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, padding: '0 6px', width: '100%' }}>
-              <IconBtn icon="splitscreen_vertical_add" title="Split into 2 columns" onClick={() => splitIntoCols(2)} size={28}/>
-              <IconBtn icon="splitscreen_add" title="Split into 2 rows" onClick={() => splitIntoRows(2)} size={28}/>
-              <IconBtn label="3⫶" title="Split into 3 columns" onClick={() => splitIntoCols(3)} size={28}/>
-              <IconBtn label="3≡" title="Split into 3 rows" onClick={() => splitIntoRows(3)} size={28}/>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, padding: '0 4px', width: '100%' }}>
+              <IconBtn icon="splitscreen_vertical_add" title="Split into 2 columns" onClick={() => splitIntoCols(2)} size={26}/>
+              <IconBtn icon="splitscreen_add" title="Split into 2 rows" onClick={() => splitIntoRows(2)} size={26}/>
+              <IconBtn label="3⫶" title="Split into 3 columns" onClick={() => splitIntoCols(3)} size={26}/>
+              <IconBtn label="3≡" title="Split into 3 rows" onClick={() => splitIntoRows(3)} size={26}/>
             </div>
           </>}
 
           {/* CONTAINER */}
           {isContainer && <>
             <SectionTitle>Inside</SectionTitle>
-            <IconBtn icon="add_row_below" title="Add row inside container" onClick={addRowInside} active size={36}/>
-            <IconBtn icon="add_column_right" title="Add column to last row" onClick={addColInside} size={36}/>
-            <IconBtn icon="layers_clear" title="Flatten container" onClick={flattenContainer} danger size={36}/>
+            <IconBtn icon="add_row_below" title="Add row inside container" onClick={addRowInside} active size={32}/>
+            <IconBtn icon="add_column_right" title="Add column to last row" onClick={addColInside} size={32}/>
+            <IconBtn icon="layers_clear" title="Flatten container" onClick={flattenContainer} danger size={32}/>
           </>}
 
-          {/* ROW */}
+          {/* ROW — 2-col grid to save vertical space */}
           <SectionTitle>Row</SectionTitle>
-          <IconBtn icon="arrow_upward"   title="Move row up"   onClick={() => moveRow(-1)} disabled={curRi === 0}/>
-          <IconBtn icon="arrow_downward" title="Move row down" onClick={() => moveRow(1)}  disabled={curRi === parentRows.length - 1}/>
-          <IconBtn icon="add_row_below"  title="Add row below" onClick={addRowBelow} active/>
-          {parentRows.length > 1 && (
-            <IconBtn icon="delete" title="Remove this row" onClick={removeRow} danger/>
-          )}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, padding: '0 4px', width: '100%' }}>
+            <IconBtn icon="arrow_upward"   title="Move row up"   onClick={() => moveRow(-1)} disabled={curRi === 0} size={26}/>
+            <IconBtn icon="arrow_downward" title="Move row down" onClick={() => moveRow(1)}  disabled={curRi === parentRows.length - 1} size={26}/>
+            <IconBtn icon="add_row_below"  title="Add row below" onClick={addRowBelow} active size={26}/>
+            <IconBtn icon="delete" title="Remove this row" onClick={removeRow} danger size={26} disabled={parentRows.length <= 1}/>
+          </div>
 
-          {/* COLUMN */}
+          {/* COLUMN — 2-col grid */}
           <SectionTitle>Col</SectionTitle>
-          <IconBtn icon="add_column_right" title="Add column right" onClick={addColRight} active/>
-          {curRow && curRow.cells.length > 1 && (
-            <IconBtn icon="variable_remove" title="Remove this column" onClick={removeCol} danger/>
-          )}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, padding: '0 4px', width: '100%' }}>
+            <IconBtn icon="add_column_right" title="Add column right" onClick={addColRight} active size={26}/>
+            <IconBtn icon="variable_remove" title="Remove this column" onClick={removeCol} danger size={26}
+              disabled={!curRow || curRow.cells.length <= 1}/>
+          </div>
 
-          {/* LAYOUT PRESETS */}
+          {/* LAYOUT PRESETS — 2-col grid */}
           <SectionTitle>Layout</SectionTitle>
-          {COL_PRESETS.map(p => {
-            const active = curRow && JSON.stringify(curRow.cols) === JSON.stringify(p.cols);
-            return (
-              <IconBtn key={p.label} label={p.label} title={`Layout ${p.label}`} onClick={() => setColLayout(p.cols)} active={active} size={28}/>
-            );
-          })}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, padding: '0 4px', width: '100%' }}>
+            {COL_PRESETS.map(p => {
+              const active = curRow && JSON.stringify(curRow.cols) === JSON.stringify(p.cols);
+              return (
+                <IconBtn key={p.label} label={p.label} title={`Layout ${p.label}`} onClick={() => setColLayout(p.cols)} active={active} size={26}/>
+              );
+            })}
+          </div>
 
-          {/* CONTENT SCALE — leaf only */}
+          {/* CONTENT SCALE — leaf only. No upper limit, compact stepper. */}
           {isLeaf && <>
             <SectionTitle>Scale</SectionTitle>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '4px 4px', width: '100%' }}>
-              <IconBtn icon="add" title="Increase content scale" size={28}
-                onClick={() => onScaleChange && onScaleChange(Math.min(2, +((cell.fontSize||1) + 0.1).toFixed(2)))}/>
-              <input type="range" min={50} max={200} step={5} orient="vertical"
-                value={Math.round((cell.fontSize||1)*100)}
-                onChange={e => onScaleChange && onScaleChange(parseInt(e.target.value)/100)}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '2px 4px', width: '100%' }}>
+              <IconBtn icon="add" title="Increase content scale (+10%)" size={26} onClick={() => stepScale(0.1)}/>
+              <input type="number" min={10} step={5}
+                value={Math.round((cell.fontSize||1) * 100)}
+                onChange={e => setScale(e.target.value)}
+                title="Type any %, no upper limit"
                 style={{
-                  WebkitAppearance:'slider-vertical', writingMode: 'bt-lr',
-                  width: 6, height: 90, accentColor: '#42dcc6', cursor: 'pointer',
+                  width: '100%', textAlign: 'center', background: '#0d1228',
+                  border: '1px solid #1c2341', borderRadius: 4, color: '#42dcc6',
+                  fontFamily: 'Space Grotesk', fontSize: 11, fontWeight: 700,
+                  padding: '4px 0', outline: 'none',
                 }}/>
-              <IconBtn icon="remove" title="Decrease content scale" size={28}
-                onClick={() => onScaleChange && onScaleChange(Math.max(0.5, +((cell.fontSize||1) - 0.1).toFixed(2)))}/>
-              <span style={{ fontSize: 9, fontWeight: 700, color: '#42dcc6', textAlign: 'center' }}>
-                {Math.round((cell.fontSize||1)*100)}%
-              </span>
+              <IconBtn icon="remove" title="Decrease content scale (-10%)" size={26} onClick={() => stepScale(-0.1)}/>
               <button onClick={() => onScaleChange && onScaleChange(1)}
-                style={{ background: 'none', border: 'none', color: '#3b426b', cursor: 'pointer', fontSize: 8, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '2px' }}>
+                style={{ background: 'none', border: 'none', color: '#3b426b', cursor: 'pointer', fontSize: 8, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '2px' }}>
                 reset
               </button>
             </div>
@@ -1978,43 +1995,55 @@ function EditorShell({ project, setProject, onPresent, onExportHTML }) {
             </button>
           ) : (
             <div onClick={e => e.stopPropagation()} style={{
-              position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)',
+              position: 'absolute', bottom: 12, left: 16, right: 16,
               background: '#0a0f26', border: '1px solid #1c2341',
-              borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.5)', zIndex: 50, minWidth: 460,
+              borderRadius: 8, display: 'flex', alignItems: 'center',
+              gap: 8, padding: '6px 10px',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.5)', zIndex: 50,
+              maxWidth: 720, margin: '0 auto', flexWrap: 'nowrap',
             }}>
-              <button onClick={() => setZoom(z => Math.max(0.1, +(z - 0.02).toFixed(2)))}
-                title="Zoom out"
-                style={{ background: '#0d1228', border: '1px solid #1c2341', borderRadius: 4, color: '#bbcac5', cursor: 'pointer', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {/* Big always-visible zoom % chip */}
+              <div style={{
+                display: 'flex', alignItems: 'baseline', gap: 2,
+                background: 'rgba(66,220,198,0.10)', border: `1px solid ${accent}`,
+                borderRadius: 4, padding: '2px 8px', flexShrink: 0, minWidth: 64,
+              }}>
+                <input type="number" min={10} step={1}
+                  value={Math.round(zoom * 100)}
+                  onChange={e => { const v = parseInt(e.target.value); if (v >= 10) setZoom(v / 100); }}
+                  title="Type any % (min 10)"
+                  style={{
+                    width: 42, background: 'transparent', border: 'none',
+                    color: accent, fontFamily: 'Space Grotesk',
+                    fontSize: 14, fontWeight: 800, textAlign: 'right',
+                    padding: 0, outline: 'none', letterSpacing: '0.02em',
+                  }}/>
+                <span style={{ fontSize: 11, color: accent, fontWeight: 700 }}>%</span>
+              </div>
+              <button onClick={() => setZoom(z => Math.max(0.1, +(z - 0.05).toFixed(2)))}
+                title="Zoom out (-5%)"
+                style={{ background: '#0d1228', border: '1px solid #1c2341', borderRadius: 4, color: '#bbcac5', cursor: 'pointer', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>remove</span>
               </button>
-              <input type="range" min={10} max={200} step={1} value={Math.round(zoom * 100)}
+              <input type="range" min={10} max={400} step={1} value={Math.min(400, Math.round(zoom * 100))}
                 onChange={e => setZoom(parseInt(e.target.value) / 100)}
-                style={{ flex: 1, accentColor: accent, cursor: 'pointer', minWidth: 200 }}/>
-              <button onClick={() => setZoom(z => Math.min(2, +(z + 0.02).toFixed(2)))}
-                title="Zoom in"
-                style={{ background: '#0d1228', border: '1px solid #1c2341', borderRadius: 4, color: '#bbcac5', cursor: 'pointer', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                style={{ flex: 1, accentColor: accent, cursor: 'pointer', minWidth: 80 }}/>
+              <button onClick={() => setZoom(z => Math.min(4, +(z + 0.05).toFixed(2)))}
+                title="Zoom in (+5%)"
+                style={{ background: '#0d1228', border: '1px solid #1c2341', borderRadius: 4, color: '#bbcac5', cursor: 'pointer', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>add</span>
               </button>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                <input type="number" min={10} max={200} step={1} value={Math.round(zoom * 100)}
-                  onChange={e => { const v = parseInt(e.target.value); if (v >= 10 && v <= 200) setZoom(v / 100); }}
-                  style={{ width: 46, background: '#111633', border: '1px solid #2a3060', color: '#dde4e1', fontFamily: 'Space Grotesk', fontSize: 11, fontWeight: 700, textAlign: 'center', padding: '4px', borderRadius: 3, outline: 'none' }}/>
-                <span style={{ fontSize: 10, color: '#464a6c', fontWeight: 700 }}>%</span>
-              </div>
-              <div style={{ width: 1, height: 20, background: '#1c2341' }}/>
               <button onClick={fitZoom}
                 title="Fit slide to current viewport"
-                style={{ background: 'rgba(66,220,198,0.10)', border: `1px solid ${accent}`, borderRadius: 4, color: accent, cursor: 'pointer', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontFamily: 'Space Grotesk', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                style={{ background: 'rgba(66,220,198,0.10)', border: `1px solid ${accent}`, borderRadius: 4, color: accent, cursor: 'pointer', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontFamily: 'Space Grotesk', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', flexShrink: 0 }}>
                 <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>fit_screen</span>Fit
               </button>
-              <span style={{ fontSize: 9, color: '#464a6c', fontWeight: 700, letterSpacing: '0.06em' }}>
-                {selSlide + 1} / {project.slides.length}
+              <span style={{ fontSize: 9, color: '#464a6c', fontWeight: 700, letterSpacing: '0.06em', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                {selSlide + 1}/{project.slides.length}
               </span>
-              <div style={{ width: 1, height: 20, background: '#1c2341' }}/>
               <button onClick={() => setZoomCollapsed(true)}
                 title="Collapse zoom toolbar"
-                style={{ background: 'transparent', border: 'none', color: '#859490', cursor: 'pointer', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4 }}>
+                style={{ background: 'transparent', border: 'none', color: '#859490', cursor: 'pointer', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, flexShrink: 0 }}>
                 <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>expand_more</span>
               </button>
             </div>
