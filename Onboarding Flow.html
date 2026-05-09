@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Goal Systems — Onboarding</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: #00001b;
+    color: #dde4e1;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+  }
+
+  /* Grid background */
+  .grid-bg {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(66,220,198,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(66,220,198,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Slide transitions */
+  .slide-enter { animation: slideIn 0.45s cubic-bezier(0.22,1,0.36,1) forwards; }
+  .slide-exit  { animation: slideOut 0.35s cubic-bezier(0.55,0,1,0.45) forwards; }
+  @keyframes slideIn  { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+  @keyframes slideOut { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(-40px); } }
+  .slide-enter-back { animation: slideInBack 0.45s cubic-bezier(0.22,1,0.36,1) forwards; }
+  @keyframes slideInBack { from { opacity:0; transform:translateX(-40px); } to { opacity:1; transform:translateX(0); } }
+
+  /* Checkbox */
+  .check-item { cursor: pointer; }
+  .check-item:hover .check-box { border-color: #42dcc6; background: rgba(66,220,198,0.08); }
+
+  /* Tweaks panel */
+  #tweaks-panel {
+    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    background: #111633; border: 1.5px solid #464a6c; padding: 20px;
+    width: 260px; display: none; flex-direction: column; gap: 14px;
+  }
+  #tweaks-panel.visible { display: flex; }
+
+  /* Input fields */
+  .gs-input {
+    background: #0d1228; border: 1.5px solid #464a6c; color: #dde4e1;
+    font-family: 'Space Grotesk', sans-serif; font-size: 14px;
+    padding: 10px 14px; outline: none; width: 100%; transition: border-color 0.2s;
+  }
+  .gs-input:focus { border-color: #42dcc6; }
+  .gs-input::placeholder { color: #859490; }
+
+  /* Select */
+  .gs-select {
+    background: #0d1228; border: 1.5px solid #464a6c; color: #dde4e1;
+    font-family: 'Space Grotesk', sans-serif; font-size: 14px;
+    padding: 10px 14px; outline: none; width: 100%; cursor: pointer;
+    appearance: none;
+  }
+  .gs-select:focus { border-color: #42dcc6; }
+
+  /* Toggle */
+  .gs-toggle { position:relative; width:40px; height:22px; }
+  .gs-toggle input { opacity:0; width:0; height:0; }
+  .gs-slider {
+    position:absolute; inset:0; background:#464a6c; cursor:pointer; transition:0.25s;
+  }
+  .gs-slider:before {
+    content:''; position:absolute; height:16px; width:16px; left:3px; bottom:3px;
+    background:#859490; transition:0.25s;
+  }
+  .gs-toggle input:checked + .gs-slider { background: rgba(66,220,198,0.25); }
+  .gs-toggle input:checked + .gs-slider:before { background:#42dcc6; transform:translateX(18px); }
+
+  /* Pill badge */
+  .gs-pill {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 3px 10px; border: 1px solid currentColor;
+  }
+
+  /* Card */
+  .gs-card {
+    background: #0d1228; border: 1.5px solid #1c2341; padding: 20px;
+    transition: border-color 0.2s;
+  }
+  .gs-card:hover { border-color: #464a6c; }
+  .gs-card.selected { border-color: #42dcc6; background: rgba(66,220,198,0.05); }
+
+  /* Scrollable area */
+  .scroll-area { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #464a6c transparent; }
+  .scroll-area::-webkit-scrollbar { width: 4px; }
+  .scroll-area::-webkit-scrollbar-thumb { background: #464a6c; }
+
+  /* Number input */
+  .gs-num { background: #0d1228; border: 1.5px solid #464a6c; color: #dde4e1;
+    font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700;
+    padding: 10px 14px; outline: none; width: 90px; text-align: center;
+    -moz-appearance: textfield;
+  }
+  .gs-num::-webkit-outer-spin-button, .gs-num::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .gs-num:focus { border-color: #42dcc6; }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ─── i18n ─────────────────────────────────────────────────────────────────────
+const T = {
+  en: {
+    brand: 'GOAL SYSTEMS',
+    tagline: 'Urban Mobility Platform',
+    steps: ['Welcome','Training','Parametrization','Configuration','Support & Deployment'],
+    skip: 'Skip',
+    back: 'Back',
+    next: 'Continue',
+    finish: 'Launch Platform',
+    progress: (s,t) => `Step ${s} of ${t}`,
+    // Welcome
+    w_title: 'Welcome to\nGoal Systems',
+    w_sub: 'Your urban mobility command center is ready. This guided setup will have you operational in minutes.',
+    w_cta: 'Begin Setup',
+    w_features: [
+      { icon: 'directions_bus', label: 'Fleet Control' },
+      { icon: 'route', label: 'Route Optimization' },
+      { icon: 'monitoring', label: 'Real-time Ops' },
+      { icon: 'support_agent', label: '24/7 Support' },
+    ],
+    // Training
+    tr_title: 'Training',
+    tr_sub: 'Complete the required modules before going live. Your team\'s competency unlocks full access.',
+    tr_modules: [
+      { id:'t1', title:'Platform Overview', desc:'Core navigation and workspace orientation', dur:'15 min', tag:'Required' },
+      { id:'t2', title:'Fleet Management', desc:'Vehicle assignment, tracking and status management', dur:'25 min', tag:'Required' },
+      { id:'t3', title:'Route & Schedule', desc:'Configure routes, timetables and stops', dur:'30 min', tag:'Required' },
+      { id:'t4', title:'Incident Response', desc:'Handling alerts, delays and operational exceptions', dur:'20 min', tag:'Recommended' },
+      { id:'t5', title:'Reporting & Analytics', desc:'Dashboards, KPIs and data exports', dur:'15 min', tag:'Optional' },
+    ],
+    // Parametrization
+    pa_title: 'Parametrization',
+    pa_sub: 'Define your operational structure. These values configure the core engine for your network.',
+    pa_fleet: 'Fleet Size',
+    pa_routes: 'Active Routes',
+    pa_depots: 'Depot Locations',
+    pa_timezone: 'Operating Timezone',
+    pa_currency: 'Currency',
+    pa_vehicles: 'Vehicle Types',
+    pa_v_opts: ['Standard Bus','Articulated Bus','Minibus','Electric Bus'],
+    pa_service: 'Service Hours',
+    pa_from: 'From',
+    pa_to: 'To',
+    // Configuration
+    co_title: 'Configuration',
+    co_sub: 'Connect your integrations, set access controls and define notification policies.',
+    co_integrations: 'System Integrations',
+    co_int_list: [
+      { id:'c1', label:'GTFS Feed', desc:'Real-time schedule data via General Transit Feed Spec' },
+      { id:'c2', label:'AVL / GPS Tracking', desc:'Automatic vehicle location from onboard units' },
+      { id:'c3', label:'Ticketing System', desc:'Fare collection and validation integration' },
+      { id:'c4', label:'SCADA / Signal Control', desc:'Traffic signal priority and intersection data' },
+      { id:'c5', label:'Passenger Info Displays', desc:'Real-time arrival boards and app feeds' },
+    ],
+    co_roles: 'User Roles & Access',
+    co_roles_list: [
+      { id:'r1', role:'Fleet Manager', access:'Full operational control', active: true },
+      { id:'r2', role:'Dispatcher', access:'Route assignment and incident management', active: true },
+      { id:'r3', role:'Driver', access:'Trip view and status reporting only', active: true },
+      { id:'r4', role:'Analyst', access:'Read-only dashboards and exports', active: false },
+    ],
+    co_notif: 'Notifications',
+    co_notif_list: [
+      { id:'n1', label:'Vehicle delays > 5 min' },
+      { id:'n2', label:'Missed stops' },
+      { id:'n3', label:'Driver no-show alerts' },
+      { id:'n4', label:'System health reports' },
+    ],
+    // Support
+    su_title: 'Support & Deployment',
+    su_sub: 'Your dedicated team is ready. Define your go-live timeline and confirm deployment preferences.',
+    su_contact: 'Technical Contact',
+    su_contact_name: 'Contact name',
+    su_contact_email: 'contact@yourorg.com',
+    su_contact_phone: '+1 000 000 0000',
+    su_timeline: 'Deployment Timeline',
+    su_phases: [
+      { id:'ph1', label:'Staging Environment', desc:'Internal testing with real data', active:true },
+      { id:'ph2', label:'Pilot Launch', desc:'Select routes — 10% of fleet', active:true },
+      { id:'ph3', label:'Full Rollout', desc:'All routes and drivers activated', active:false },
+    ],
+    su_sla: 'SLA Support Level',
+    su_sla_opts: ['Standard (Business hours)','Premium (24/7)','Enterprise (Dedicated engineer)'],
+    su_ready: 'Ready to deploy',
+    // Launch
+    la_title: 'You\'re operational.',
+    la_sub: 'Your Goal Systems environment has been configured. The command center is now active.',
+    la_stats: [
+      { label:'Fleet Size' },
+      { label:'Routes' },
+      { label:'Depots' },
+    ],
+    la_cta: 'Open Command Center',
+    la_doc: 'View Documentation',
+  },
+  es: {
+    brand: 'GOAL SYSTEMS',
+    tagline: 'Plataforma de Movilidad Urbana',
+    steps: ['Bienvenida','Formación','Parametrización','Configuración','Soporte y Despliegue'],
+    skip: 'Omitir',
+    back: 'Atrás',
+    next: 'Continuar',
+    finish: 'Lanzar Plataforma',
+    progress: (s,t) => `Paso ${s} de ${t}`,
+    w_title: 'Bienvenido a\nGoal Systems',
+    w_sub: 'Tu centro de control de movilidad urbana está listo. Esta guía te dejará operativo en minutos.',
+    w_cta: 'Iniciar Configuración',
+    w_features: [
+      { icon: 'directions_bus', label: 'Control de Flota' },
+      { icon: 'route', label: 'Optimización de Rutas' },
+      { icon: 'monitoring', label: 'Ops en Tiempo Real' },
+      { icon: 'support_agent', label: 'Soporte 24/7' },
+    ],
+    tr_title: 'Formación',
+    tr_sub: 'Completa los módulos obligatorios antes del lanzamiento. La competencia de tu equipo desbloquea el acceso completo.',
+    tr_modules: [
+      { id:'t1', title:'Visión General', desc:'Navegación y orientación del espacio de trabajo', dur:'15 min', tag:'Obligatorio' },
+      { id:'t2', title:'Gestión de Flota', desc:'Asignación de vehículos, seguimiento y gestión de estado', dur:'25 min', tag:'Obligatorio' },
+      { id:'t3', title:'Ruta y Horario', desc:'Configurar rutas, horarios y paradas', dur:'30 min', tag:'Obligatorio' },
+      { id:'t4', title:'Respuesta a Incidentes', desc:'Gestión de alertas, retrasos y excepciones operativas', dur:'20 min', tag:'Recomendado' },
+      { id:'t5', title:'Informes y Analítica', desc:'Dashboards, KPIs y exportaciones de datos', dur:'15 min', tag:'Opcional' },
+    ],
+    pa_title: 'Parametrización',
+    pa_sub: 'Define tu estructura operativa. Estos valores configuran el motor central de tu red.',
+    pa_fleet: 'Tamaño de Flota',
+    pa_routes: 'Rutas Activas',
+    pa_depots: 'Ubicaciones de Depósito',
+    pa_timezone: 'Zona Horaria',
+    pa_currency: 'Moneda',
+    pa_vehicles: 'Tipos de Vehículo',
+    pa_v_opts: ['Autobús Estándar','Autobús Articulado','Microbús','Autobús Eléctrico'],
+    pa_service: 'Horario de Servicio',
+    pa_from: 'Desde',
+    pa_to: 'Hasta',
+    co_title: 'Configuración',
+    co_sub: 'Conecta tus integraciones, establece controles de acceso y define políticas de notificación.',
+    co_integrations: 'Integraciones de Sistema',
+    co_int_list: [
+      { id:'c1', label:'Feed GTFS', desc:'Datos de horario en tiempo real vía Especificación General de Feed de Tránsito' },
+      { id:'c2', label:'AVL / GPS', desc:'Localización automática de vehículos desde unidades a bordo' },
+      { id:'c3', label:'Sistema de Ticketing', desc:'Integración de recaudación y validación de tarifas' },
+      { id:'c4', label:'SCADA / Control de Señales', desc:'Prioridad en semáforos y datos de intersecciones' },
+      { id:'c5', label:'Paneles de Info al Pasajero', desc:'Tableros de llegada en tiempo real y feeds de app' },
+    ],
+    co_roles: 'Roles y Acceso de Usuarios',
+    co_roles_list: [
+      { id:'r1', role:'Gestor de Flota', access:'Control operativo completo', active: true },
+      { id:'r2', role:'Despachador', access:'Asignación de rutas y gestión de incidentes', active: true },
+      { id:'r3', role:'Conductor', access:'Vista de viaje y reporte de estado únicamente', active: true },
+      { id:'r4', role:'Analista', access:'Dashboards y exportaciones solo lectura', active: false },
+    ],
+    co_notif: 'Notificaciones',
+    co_notif_list: [
+      { id:'n1', label:'Retrasos de vehículo > 5 min' },
+      { id:'n2', label:'Paradas omitidas' },
+      { id:'n3', label:'Alertas de conductor ausente' },
+      { id:'n4', label:'Reportes de salud del sistema' },
+    ],
+    su_title: 'Soporte y Despliegue',
+    su_sub: 'Tu equipo dedicado está listo. Define tu cronograma de lanzamiento y confirma las preferencias de despliegue.',
+    su_contact: 'Contacto Técnico',
+    su_contact_name: 'Nombre del contacto',
+    su_contact_email: 'contacto@tuorganizacion.com',
+    su_contact_phone: '+34 000 000 000',
+    su_timeline: 'Cronograma de Despliegue',
+    su_phases: [
+      { id:'ph1', label:'Entorno de Staging', desc:'Pruebas internas con datos reales', active:true },
+      { id:'ph2', label:'Lanzamiento Piloto', desc:'Rutas seleccionadas — 10% de la flota', active:true },
+      { id:'ph3', label:'Despliegue Total', desc:'Todas las rutas y conductores activados', active:false },
+    ],
+    su_sla: 'Nivel de Soporte SLA',
+    su_sla_opts: ['Estándar (Horario laboral)','Premium (24/7)','Empresarial (Ingeniero dedicado)'],
+    su_ready: 'Listo para desplegar',
+    la_title: 'Estás operativo.',
+    la_sub: 'Tu entorno de Goal Systems ha sido configurado. El centro de control está activo.',
+    la_stats: [
+      { label:'Flota' },
+      { label:'Rutas' },
+      { label:'Depósitos' },
+    ],
+    la_cta: 'Abrir Centro de Control',
+    la_doc: 'Ver Documentación',
+  },
+  pt: {
+    brand: 'GOAL SYSTEMS',
+    tagline: 'Plataforma de Mobilidade Urbana',
+    steps: ['Boas-vindas','Treinamento','Parametrização','Configuração','Suporte e Implantação'],
+    skip: 'Pular',
+    back: 'Voltar',
+    next: 'Continuar',
+    finish: 'Lançar Plataforma',
+    progress: (s,t) => `Passo ${s} de ${t}`,
+    w_title: 'Bem-vindo ao\nGoal Systems',
+    w_sub: 'Sua central de controle de mobilidade urbana está pronta. Este guia deixará você operacional em minutos.',
+    w_cta: 'Iniciar Configuração',
+    w_features: [
+      { icon:'directions_bus', label:'Controle de Frota' },
+      { icon:'route', label:'Otimização de Rotas' },
+      { icon:'monitoring', label:'Ops em Tempo Real' },
+      { icon:'support_agent', label:'Suporte 24/7' },
+    ],
+    tr_title: 'Treinamento',
+    tr_sub: 'Complete os módulos obrigatórios antes do lançamento. A competência da sua equipe libera o acesso completo.',
+    tr_modules: [
+      { id:'t1', title:'Visão Geral da Plataforma', desc:'Navegação principal e orientação do espaço de trabalho', dur:'15 min', tag:'Obrigatório' },
+      { id:'t2', title:'Gestão de Frota', desc:'Atribuição de veículos, rastreamento e gestão de status', dur:'25 min', tag:'Obrigatório' },
+      { id:'t3', title:'Rota e Horário', desc:'Configurar rotas, horários e paradas', dur:'30 min', tag:'Obrigatório' },
+      { id:'t4', title:'Resposta a Incidentes', desc:'Gestão de alertas, atrasos e exceções operacionais', dur:'20 min', tag:'Recomendado' },
+      { id:'t5', title:'Relatórios e Análise', desc:'Dashboards, KPIs e exportações de dados', dur:'15 min', tag:'Opcional' },
+    ],
+    pa_title: 'Parametrização',
+    pa_sub: 'Defina sua estrutura operacional. Esses valores configuram o motor central da sua rede.',
+    pa_fleet: 'Tamanho da Frota',
+    pa_routes: 'Rotas Ativas',
+    pa_depots: 'Localidades de Depósito',
+    pa_timezone: 'Fuso Horário',
+    pa_currency: 'Moeda',
+    pa_vehicles: 'Tipos de Veículo',
+    pa_v_opts: ['Ônibus Padrão','Ônibus Articulado','Micro-ônibus','Ônibus Elétrico'],
+    pa_service: 'Horário de Serviço',
+    pa_from: 'De',
+    pa_to: 'Até',
+    co_title: 'Configuração',
+    co_sub: 'Conecte suas integrações, defina controles de acesso e políticas de notificação.',
+    co_integrations: 'Integrações de Sistema',
+    co_int_list: [
+      { id:'c1', label:'Feed GTFS', desc:'Dados de horário em tempo real via Especificação Geral de Feed de Trânsito' },
+      { id:'c2', label:'AVL / GPS', desc:'Localização automática de veículos a partir de unidades de bordo' },
+      { id:'c3', label:'Sistema de Bilhetagem', desc:'Integração de cobrança e validação de tarifas' },
+      { id:'c4', label:'SCADA / Controle de Sinais', desc:'Prioridade em semáforos e dados de interseções' },
+      { id:'c5', label:'Painéis de Info ao Passageiro', desc:'Painéis de chegada em tempo real e feeds de app' },
+    ],
+    co_roles: 'Funções e Acesso de Usuários',
+    co_roles_list: [
+      { id:'r1', role:'Gestor de Frota', access:'Controle operacional completo', active: true },
+      { id:'r2', role:'Despachante', access:'Atribuição de rotas e gestão de incidentes', active: true },
+      { id:'r3', role:'Motorista', access:'Visualização de viagem e relatório de status apenas', active: true },
+      { id:'r4', role:'Analista', access:'Dashboards e exportações somente leitura', active: false },
+    ],
+    co_notif: 'Notificações',
+    co_notif_list: [
+      { id:'n1', label:'Atrasos de veículo > 5 min' },
+      { id:'n2', label:'Paradas ignoradas' },
+      { id:'n3', label:'Alertas de motorista ausente' },
+      { id:'n4', label:'Relatórios de saúde do sistema' },
+    ],
+    su_title: 'Suporte e Implantação',
+    su_sub: 'Sua equipe dedicada está pronta. Defina seu cronograma de lançamento e confirme as preferências de implantação.',
+    su_contact: 'Contato Técnico',
+    su_contact_name: 'Nome do contato',
+    su_contact_email: 'contato@suaorganizacao.com',
+    su_contact_phone: '+55 00 0000 0000',
+    su_timeline: 'Cronograma de Implantação',
+    su_phases: [
+      { id:'ph1', label:'Ambiente de Staging', desc:'Testes internos com dados reais', active:true },
+      { id:'ph2', label:'Lançamento Piloto', desc:'Rotas selecionadas — 10% da frota', active:true },
+      { id:'ph3', label:'Implantação Total', desc:'Todas as rotas e motoristas ativados', active:false },
+    ],
+    su_sla: 'Nível de Suporte SLA',
+    su_sla_opts: ['Padrão (Horário comercial)','Premium (24/7)','Empresarial (Engenheiro dedicado)'],
+    su_ready: 'Pronto para implantar',
+    la_title: 'Você está operacional.',
+    la_sub: 'Seu ambiente Goal Systems foi configurado. A central de controle está ativa.',
+    la_stats: [ { label:'Frota' }, { label:'Rotas' }, { label:'Depósitos' } ],
+    la_cta: 'Abrir Central de Controle',
+    la_doc: 'Ver Documentação',
+  },
+  it: {
+    brand: 'GOAL SYSTEMS',
+    tagline: 'Piattaforma di Mobilità Urbana',
+    steps: ['Benvenuto','Formazione','Parametrizzazione','Configurazione','Supporto e Deployment'],
+    skip: 'Salta',
+    back: 'Indietro',
+    next: 'Continua',
+    finish: 'Avvia Piattaforma',
+    progress: (s,t) => `Passo ${s} di ${t}`,
+    w_title: 'Benvenuto in\nGoal Systems',
+    w_sub: 'Il tuo centro di controllo per la mobilità urbana è pronto. Questa guida ti renderà operativo in pochi minuti.',
+    w_cta: 'Inizia Configurazione',
+    w_features: [
+      { icon:'directions_bus', label:'Controllo Flotta' },
+      { icon:'route', label:'Ottimizzazione Route' },
+      { icon:'monitoring', label:'Ops in Tempo Reale' },
+      { icon:'support_agent', label:'Supporto 24/7' },
+    ],
+    tr_title: 'Formazione',
+    tr_sub: 'Completa i moduli obbligatori prima del lancio. La competenza del tuo team sblocca l\'accesso completo.',
+    tr_modules: [
+      { id:'t1', title:'Panoramica Piattaforma', desc:'Navigazione principale e orientamento workspace', dur:'15 min', tag:'Obbligatorio' },
+      { id:'t2', title:'Gestione Flotta', desc:'Assegnazione veicoli, tracciamento e gestione stato', dur:'25 min', tag:'Obbligatorio' },
+      { id:'t3', title:'Route e Orari', desc:'Configura percorsi, orari e fermate', dur:'30 min', tag:'Obbligatorio' },
+      { id:'t4', title:'Gestione Incidenti', desc:'Gestione alert, ritardi ed eccezioni operative', dur:'20 min', tag:'Consigliato' },
+      { id:'t5', title:'Report e Analisi', desc:'Dashboard, KPI ed esportazioni dati', dur:'15 min', tag:'Opzionale' },
+    ],
+    pa_title: 'Parametrizzazione',
+    pa_sub: 'Definisci la tua struttura operativa. Questi valori configurano il motore centrale della tua rete.',
+    pa_fleet: 'Dimensione Flotta',
+    pa_routes: 'Route Attive',
+    pa_depots: 'Depositi',
+    pa_timezone: 'Fuso Orario',
+    pa_currency: 'Valuta',
+    pa_vehicles: 'Tipi di Veicolo',
+    pa_v_opts: ['Bus Standard','Bus Articolato','Minibus','Bus Elettrico'],
+    pa_service: 'Orario Servizio',
+    pa_from: 'Da',
+    pa_to: 'A',
+    co_title: 'Configurazione',
+    co_sub: 'Connetti le integrazioni, imposta i controlli di accesso e definisci le politiche di notifica.',
+    co_integrations: 'Integrazioni di Sistema',
+    co_int_list: [
+      { id:'c1', label:'Feed GTFS', desc:'Dati orari in tempo reale tramite General Transit Feed Spec' },
+      { id:'c2', label:'AVL / GPS', desc:'Localizzazione automatica veicoli da unità di bordo' },
+      { id:'c3', label:'Sistema Biglietteria', desc:'Integrazione raccolta e validazione tariffe' },
+      { id:'c4', label:'SCADA / Controllo Segnali', desc:'Priorità semaforica e dati intersezioni' },
+      { id:'c5', label:'Pannelli Info Passeggeri', desc:'Tabelloni arrivi in tempo reale e feed app' },
+    ],
+    co_roles: 'Ruoli e Accessi Utenti',
+    co_roles_list: [
+      { id:'r1', role:'Fleet Manager', access:'Controllo operativo completo', active: true },
+      { id:'r2', role:'Dispatcher', access:'Assegnazione route e gestione incidenti', active: true },
+      { id:'r3', role:'Autista', access:'Solo visualizzazione viaggio e segnalazione stato', active: true },
+      { id:'r4', role:'Analista', access:'Dashboard ed esportazioni sola lettura', active: false },
+    ],
+    co_notif: 'Notifiche',
+    co_notif_list: [
+      { id:'n1', label:'Ritardi veicolo > 5 min' },
+      { id:'n2', label:'Fermate saltate' },
+      { id:'n3', label:'Alert autista assente' },
+      { id:'n4', label:'Report salute sistema' },
+    ],
+    su_title: 'Supporto e Deployment',
+    su_sub: 'Il tuo team dedicato è pronto. Definisci la timeline di go-live e conferma le preferenze di deployment.',
+    su_contact: 'Contatto Tecnico',
+    su_contact_name: 'Nome contatto',
+    su_contact_email: 'contatto@tuaorg.com',
+    su_contact_phone: '+39 000 000 0000',
+    su_timeline: 'Timeline di Deployment',
+    su_phases: [
+      { id:'ph1', label:'Ambiente Staging', desc:'Test interni con dati reali', active:true },
+      { id:'ph2', label:'Lancio Pilota', desc:'Route selezionate — 10% della flotta', active:true },
+      { id:'ph3', label:'Rollout Completo', desc:'Tutte le route e autisti attivati', active:false },
+    ],
+    su_sla: 'Livello Supporto SLA',
+    su_sla_opts: ['Standard (Orario lavorativo)','Premium (24/7)','Enterprise (Ingegnere dedicato)'],
+    su_ready: 'Pronto per il deployment',
+    la_title: 'Sei operativo.',
+    la_sub: 'Il tuo ambiente Goal Systems è stato configurato. Il centro di comando è ora attivo.',
+    la_stats: [ { label:'Flotta' }, { label:'Route' }, { label:'Depositi' } ],
+    la_cta: 'Apri Centro di Comando',
+    la_doc: 'Vedi Documentazione',
+  },
+  fr: {
+    brand: 'GOAL SYSTEMS',
+    tagline: 'Plateforme de Mobilité Urbaine',
+    steps: ['Bienvenue','Formation','Paramétrage','Configuration','Support & Déploiement'],
+    skip: 'Passer',
+    back: 'Retour',
+    next: 'Continuer',
+    finish: 'Lancer la Plateforme',
+    progress: (s,t) => `Étape ${s} sur ${t}`,
+    w_title: 'Bienvenue sur\nGoal Systems',
+    w_sub: 'Votre centre de commandement pour la mobilité urbaine est prêt. Ce guide vous rendra opérationnel en quelques minutes.',
+    w_cta: 'Démarrer la Configuration',
+    w_features: [
+      { icon:'directions_bus', label:'Gestion de Flotte' },
+      { icon:'route', label:'Optimisation des Lignes' },
+      { icon:'monitoring', label:'Opérations en Temps Réel' },
+      { icon:'support_agent', label:'Support 24/7' },
+    ],
+    tr_title: 'Formation',
+    tr_sub: 'Complétez les modules obligatoires avant le lancement. La compétence de votre équipe débloque l\'accès complet.',
+    tr_modules: [
+      { id:'t1', title:'Vue d\'ensemble', desc:'Navigation principale et orientation de l\'espace de travail', dur:'15 min', tag:'Obligatoire' },
+      { id:'t2', title:'Gestion de Flotte', desc:'Affectation des véhicules, suivi et gestion des statuts', dur:'25 min', tag:'Obligatoire' },
+      { id:'t3', title:'Lignes & Horaires', desc:'Configurer les lignes, horaires et arrêts', dur:'30 min', tag:'Obligatoire' },
+      { id:'t4', title:'Gestion des Incidents', desc:'Gestion des alertes, retards et exceptions opérationnelles', dur:'20 min', tag:'Recommandé' },
+      { id:'t5', title:'Rapports & Analyses', desc:'Tableaux de bord, KPIs et exports de données', dur:'15 min', tag:'Optionnel' },
+    ],
+    pa_title: 'Paramétrage',
+    pa_sub: 'Définissez votre structure opérationnelle. Ces valeurs configurent le moteur central de votre réseau.',
+    pa_fleet: 'Taille de la Flotte',
+    pa_routes: 'Lignes Actives',
+    pa_depots: 'Dépôts',
+    pa_timezone: 'Fuseau Horaire',
+    pa_currency: 'Devise',
+    pa_vehicles: 'Types de Véhicule',
+    pa_v_opts: ['Bus Standard','Bus Articulé','Minibus','Bus Électrique'],
+    pa_service: 'Horaires de Service',
+    pa_from: 'De',
+    pa_to: 'À',
+    co_title: 'Configuration',
+    co_sub: 'Connectez vos intégrations, définissez les contrôles d\'accès et les politiques de notification.',
+    co_integrations: 'Intégrations Système',
+    co_int_list: [
+      { id:'c1', label:'Flux GTFS', desc:'Données horaires en temps réel via General Transit Feed Spec' },
+      { id:'c2', label:'AVL / GPS', desc:'Localisation automatique des véhicules depuis les unités embarquées' },
+      { id:'c3', label:'Système de Billettique', desc:'Intégration de la collecte et validation des tarifs' },
+      { id:'c4', label:'SCADA / Contrôle des Feux', desc:'Priorité aux carrefours et données d\'intersection' },
+      { id:'c5', label:'Panneaux Info Voyageurs', desc:'Tableaux d\'affichage temps réel et flux applicatif' },
+    ],
+    co_roles: 'Rôles & Accès Utilisateurs',
+    co_roles_list: [
+      { id:'r1', role:'Responsable Flotte', access:'Contrôle opérationnel complet', active: true },
+      { id:'r2', role:'Régulateur', access:'Affectation des lignes et gestion des incidents', active: true },
+      { id:'r3', role:'Conducteur', access:'Visualisation voyage et signalement de statut uniquement', active: true },
+      { id:'r4', role:'Analyste', access:'Tableaux de bord et exports en lecture seule', active: false },
+    ],
+    co_notif: 'Notifications',
+    co_notif_list: [
+      { id:'n1', label:'Retards véhicule > 5 min' },
+      { id:'n2', label:'Arrêts non desservis' },
+      { id:'n3', label:'Alertes conducteur absent' },
+      { id:'n4', label:'Rapports de santé système' },
+    ],
+    su_title: 'Support & Déploiement',
+    su_sub: 'Votre équipe dédiée est prête. Définissez votre calendrier de mise en production et confirmez vos préférences.',
+    su_contact: 'Contact Technique',
+    su_contact_name: 'Nom du contact',
+    su_contact_email: 'contact@votreorg.com',
+    su_contact_phone: '+33 0 00 00 00 00',
+    su_timeline: 'Calendrier de Déploiement',
+    su_phases: [
+      { id:'ph1', label:'Environnement de Staging', desc:'Tests internes avec données réelles', active:true },
+      { id:'ph2', label:'Lancement Pilote', desc:'Lignes sélectionnées — 10% de la flotte', active:true },
+      { id:'ph3', label:'Déploiement Complet', desc:'Toutes les lignes et conducteurs activés', active:false },
+    ],
+    su_sla: 'Niveau de Support SLA',
+    su_sla_opts: ['Standard (Heures ouvrables)','Premium (24/7)','Entreprise (Ingénieur dédié)'],
+    su_ready: 'Prêt pour le déploiement',
+    la_title: 'Vous êtes opérationnel.',
+    la_sub: 'Votre environnement Goal Systems a été configuré. Le centre de commandement est maintenant actif.',
+    la_stats: [ { label:'Flotte' }, { label:'Lignes' }, { label:'Dépôts' } ],
+    la_cta: 'Ouvrir le Centre de Commandement',
+    la_doc: 'Voir la Documentation',
+  },
+  nl: {
+    brand: 'GOAL SYSTEMS',
+    tagline: 'Stedelijk Mobiliteitenplatform',
+    steps: ['Welkom','Training','Parametrisatie','Configuratie','Ondersteuning & Implementatie'],
+    skip: 'Overslaan',
+    back: 'Terug',
+    next: 'Doorgaan',
+    finish: 'Platform Starten',
+    progress: (s,t) => `Stap ${s} van ${t}`,
+    w_title: 'Welkom bij\nGoal Systems',
+    w_sub: 'Uw commando-centrum voor stedelijke mobiliteit is klaar. Deze gids maakt u in enkele minuten operationeel.',
+    w_cta: 'Configuratie Starten',
+    w_features: [
+      { icon:'directions_bus', label:'Vlootbeheer' },
+      { icon:'route', label:'Route-optimalisatie' },
+      { icon:'monitoring', label:'Real-time Ops' },
+      { icon:'support_agent', label:'24/7 Support' },
+    ],
+    tr_title: 'Training',
+    tr_sub: 'Voltooi de verplichte modules voordat u live gaat. De competentie van uw team ontgrendelt volledige toegang.',
+    tr_modules: [
+      { id:'t1', title:'Platform Overzicht', desc:'Kernnavigatie en oriëntatie van de werkruimte', dur:'15 min', tag:'Verplicht' },
+      { id:'t2', title:'Vlootbeheer', desc:'Voertuigtoewijzing, tracking en statusbeheer', dur:'25 min', tag:'Verplicht' },
+      { id:'t3', title:'Route & Dienstregeling', desc:'Configureer routes, dienstregelingen en haltes', dur:'30 min', tag:'Verplicht' },
+      { id:'t4', title:'Incident Response', desc:'Beheer van meldingen, vertragingen en operationele uitzonderingen', dur:'20 min', tag:'Aanbevolen' },
+      { id:'t5', title:'Rapportage & Analyse', desc:'Dashboards, KPI\'s en data-exports', dur:'15 min', tag:'Optioneel' },
+    ],
+    pa_title: 'Parametrisatie',
+    pa_sub: 'Definieer uw operationele structuur. Deze waarden configureren de centrale motor van uw netwerk.',
+    pa_fleet: 'Vlootgrootte',
+    pa_routes: 'Actieve Routes',
+    pa_depots: 'Depotlocaties',
+    pa_timezone: 'Tijdzone',
+    pa_currency: 'Valuta',
+    pa_vehicles: 'Voertuigtypes',
+    pa_v_opts: ['Standaard Bus','Gelede Bus','Minibus','Elektrische Bus'],
+    pa_service: 'Diensturen',
+    pa_from: 'Van',
+    pa_to: 'Tot',
+    co_title: 'Configuratie',
+    co_sub: 'Verbind uw integraties, stel toegangscontroles in en definieer meldingsbeleid.',
+    co_integrations: 'Systeemintegraties',
+    co_int_list: [
+      { id:'c1', label:'GTFS-feed', desc:'Real-time dienstregelingsdata via General Transit Feed Spec' },
+      { id:'c2', label:'AVL / GPS Tracking', desc:'Automatische voertuiglocatie van boordapparatuur' },
+      { id:'c3', label:'Ticketsysteem', desc:'Integratie tariefinning en validatie' },
+      { id:'c4', label:'SCADA / Verkeersregeling', desc:'Verkeerslichtprioriteit en kruispuntdata' },
+      { id:'c5', label:'Reizigersinformatieborden', desc:'Real-time aankomstborden en app-feeds' },
+    ],
+    co_roles: 'Gebruikersrollen & Toegang',
+    co_roles_list: [
+      { id:'r1', role:'Vlootmanager', access:'Volledige operationele controle', active: true },
+      { id:'r2', role:'Dispatcher', access:'Routetoewijzing en incidentbeheer', active: true },
+      { id:'r3', role:'Bestuurder', access:'Alleen ritoverzicht en statusrapportage', active: true },
+      { id:'r4', role:'Analist', access:'Dashboards en exports alleen-lezen', active: false },
+    ],
+    co_notif: 'Meldingen',
+    co_notif_list: [
+      { id:'n1', label:'Voertuigvertraging > 5 min' },
+      { id:'n2', label:'Overgeslagen haltes' },
+      { id:'n3', label:'Bestuurder afwezig meldingen' },
+      { id:'n4', label:'Systeemgezondheidsrapporten' },
+    ],
+    su_title: 'Ondersteuning & Implementatie',
+    su_sub: 'Uw toegewijd team staat klaar. Definieer uw livegangtijdlijn en bevestig implementatievoorkeuren.',
+    su_contact: 'Technisch Contact',
+    su_contact_name: 'Naam contactpersoon',
+    su_contact_email: 'contact@uworg.nl',
+    su_contact_phone: '+31 0 000 00 00',
+    su_timeline: 'Implementatietijdlijn',
+    su_phases: [
+      { id:'ph1', label:'Stagingomgeving', desc:'Interne tests met echte data', active:true },
+      { id:'ph2', label:'Pilotlancering', desc:'Geselecteerde routes — 10% van de vloot', active:true },
+      { id:'ph3', label:'Volledige Uitrol', desc:'Alle routes en bestuurders geactiveerd', active:false },
+    ],
+    su_sla: 'SLA-ondersteuningsniveau',
+    su_sla_opts: ['Standaard (Kantooruren)','Premium (24/7)','Enterprise (Toegewijd ingenieur)'],
+    su_ready: 'Klaar voor implementatie',
+    la_title: 'U bent operationeel.',
+    la_sub: 'Uw Goal Systems-omgeving is geconfigureerd. Het commandocentrum is nu actief.',
+    la_stats: [ { label:'Vloot' }, { label:'Routes' }, { label:'Depots' } ],
+    la_cta: 'Commandocentrum Openen',
+    la_doc: 'Documentatie Bekijken',
+  },
+  ar: {
+    brand: 'GOAL SYSTEMS',
+    tagline: 'منصة التنقل الحضري',
+    steps: ['مرحباً','التدريب','المَعلمة','الإعداد','الدعم والنشر'],
+    skip: 'تخطي',
+    back: 'رجوع',
+    next: 'متابعة',
+    finish: 'إطلاق المنصة',
+    progress: (s,t) => `الخطوة ${s} من ${t}`,
+    w_title: 'مرحباً بك في\nGoal Systems',
+    w_sub: 'مركز قيادة التنقل الحضري الخاص بك جاهز. سيجعلك هذا الدليل تعمل بكامل طاقته في دقائق.',
+    w_cta: 'بدء الإعداد',
+    w_features: [
+      { icon:'directions_bus', label:'إدارة الأسطول' },
+      { icon:'route', label:'تحسين المسارات' },
+      { icon:'monitoring', label:'عمليات الوقت الفعلي' },
+      { icon:'support_agent', label:'دعم ٢٤/٧' },
+    ],
+    tr_title: 'التدريب',
+    tr_sub: 'أكمل الوحدات الإلزامية قبل الإطلاق. تُفتح صلاحية الوصول الكامل بإتقان فريقك.',
+    tr_modules: [
+      { id:'t1', title:'نظرة عامة على المنصة', desc:'التنقل الأساسي والتوجيه في بيئة العمل', dur:'١٥ د', tag:'إلزامي' },
+      { id:'t2', title:'إدارة الأسطول', desc:'تعيين المركبات والتتبع وإدارة الحالة', dur:'٢٥ د', tag:'إلزامي' },
+      { id:'t3', title:'المسار والجدول الزمني', desc:'تكوين المسارات والجداول والمحطات', dur:'٣٠ د', tag:'إلزامي' },
+      { id:'t4', title:'الاستجابة للحوادث', desc:'إدارة التنبيهات والتأخيرات والاستثناءات التشغيلية', dur:'٢٠ د', tag:'موصى به' },
+      { id:'t5', title:'التقارير والتحليلات', desc:'لوحات المعلومات ومؤشرات الأداء وتصدير البيانات', dur:'١٥ د', tag:'اختياري' },
+    ],
+    pa_title: 'المَعلمة',
+    pa_sub: 'حدد هيكلك التشغيلي. تُهيّئ هذه القيم المحرك المركزي لشبكتك.',
+    pa_fleet: 'حجم الأسطول',
+    pa_routes: 'المسارات النشطة',
+    pa_depots: 'مواقع المستودعات',
+    pa_timezone: 'المنطقة الزمنية',
+    pa_currency: 'العملة',
+    pa_vehicles: 'أنواع المركبات',
+    pa_v_opts: ['حافلة قياسية','حافلة مفصلية','حافلة صغيرة','حافلة كهربائية'],
+    pa_service: 'ساعات الخدمة',
+    pa_from: 'من',
+    pa_to: 'إلى',
+    co_title: 'الإعداد',
+    co_sub: 'اربط تكاملاتك وحدد ضوابط الوصول وسياسات الإشعارات.',
+    co_integrations: 'تكاملات النظام',
+    co_int_list: [
+      { id:'c1', label:'خلاصة GTFS', desc:'بيانات الجدول الزمني في الوقت الفعلي عبر مواصفة خلاصة العبور العامة' },
+      { id:'c2', label:'AVL / GPS', desc:'تحديد موقع المركبة تلقائياً من الوحدات المدمجة' },
+      { id:'c3', label:'نظام التذاكر', desc:'تكامل جمع الأجور والتحقق منها' },
+      { id:'c4', label:'SCADA / التحكم بالإشارات', desc:'أولوية إشارات المرور وبيانات التقاطع' },
+      { id:'c5', label:'لوحات معلومات الركاب', desc:'لوحات الوصول الفوري وخلاصات التطبيق' },
+    ],
+    co_roles: 'أدوار المستخدمين والوصول',
+    co_roles_list: [
+      { id:'r1', role:'مدير الأسطول', access:'التحكم التشغيلي الكامل', active: true },
+      { id:'r2', role:'المرسل', access:'تعيين المسارات وإدارة الحوادث', active: true },
+      { id:'r3', role:'السائق', access:'عرض الرحلة وإعداد تقارير الحالة فقط', active: true },
+      { id:'r4', role:'المحلل', access:'لوحات المعلومات والتصدير للقراءة فقط', active: false },
+    ],
+    co_notif: 'الإشعارات',
+    co_notif_list: [
+      { id:'n1', label:'تأخير مركبة > ٥ دقائق' },
+      { id:'n2', label:'محطات مُتخطّاة' },
+      { id:'n3', label:'تنبيهات غياب السائق' },
+      { id:'n4', label:'تقارير صحة النظام' },
+    ],
+    su_title: 'الدعم والنشر',
+    su_sub: 'فريقك المخصص جاهز. حدد الجدول الزمني للإطلاق وأكّد تفضيلات النشر.',
+    su_contact: 'جهة الاتصال التقنية',
+    su_contact_name: 'اسم جهة الاتصال',
+    su_contact_email: 'contact@yourorg.com',
+    su_contact_phone: '+966 00 000 0000',
+    su_timeline: 'الجدول الزمني للنشر',
+    su_phases: [
+      { id:'ph1', label:'بيئة الاختبار', desc:'اختبارات داخلية ببيانات حقيقية', active:true },
+      { id:'ph2', label:'الإطلاق التجريبي', desc:'مسارات مختارة — ١٠٪ من الأسطول', active:true },
+      { id:'ph3', label:'الطرح الكامل', desc:'تفعيل جميع المسارات والسائقين', active:false },
+    ],
+    su_sla: 'مستوى دعم SLA',
+    su_sla_opts: ['قياسي (ساعات العمل)','بريميوم (٢٤/٧)','مؤسسي (مهندس مخصص)'],
+    su_ready: 'جاهز للنشر',
+    la_title: 'أنت الآن جاهز للعمل.',
+    la_sub: 'تم تكوين بيئة Goal Systems الخاصة بك. مركز القيادة نشط الآن.',
+    la_stats: [ { label:'الأسطول' }, { label:'المسارات' }, { label:'المستودعات' } ],
+    la_cta: 'فتح مركز القيادة',
+    la_doc: 'عرض الوثائق',
+  },
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const Icon = ({ name, size = 20, style = {} }) => (
+  <span className="material-symbols-outlined" style={{ fontSize: size, lineHeight:1, display:'inline-block', fontVariationSettings:"'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24", ...style }}>
+    {name}
+  </span>
+);
+
+const Pill = ({ children, color = '#42dcc6' }) => (
+  <span className="gs-pill" style={{ color, borderColor: color }}>{children}</span>
+);
+
+// ─── Progress Bar ─────────────────────────────────────────────────────────────
+const ProgressBar = ({ step, total, labels }) => (
+  <div style={{ display:'flex', alignItems:'center', gap:0, width:'100%' }}>
+    {labels.map((label, i) => {
+      const done = i < step;
+      const active = i === step;
+      return (
+        <React.Fragment key={i}>
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
+            <div style={{
+              width: 28, height: 28, border: `2px solid ${done || active ? '#42dcc6' : '#464a6c'}`,
+              background: done ? '#42dcc6' : active ? 'rgba(66,220,198,0.1)' : 'transparent',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              transition: 'all 0.3s',
+            }}>
+              {done
+                ? <Icon name="check" size={14} style={{ color:'#00001b' }} />
+                : <span style={{ fontSize:11, fontWeight:700, color: active ? '#42dcc6' : '#859490' }}>{i+1}</span>
+              }
+            </div>
+            <span style={{ fontSize:10, fontWeight:600, letterSpacing:'0.06em', textTransform:'uppercase', color: active ? '#42dcc6' : done ? '#bbcac5' : '#859490', whiteSpace:'nowrap' }}>
+              {label}
+            </span>
+          </div>
+          {i < total - 1 && (
+            <div style={{ flex:1, height:2, background: done ? '#42dcc6' : '#464a6c', margin:'0 4px', marginBottom:22, transition:'background 0.4s' }} />
+          )}
+        </React.Fragment>
+      );
+    })}
+  </div>
+);
+
+// ─── STEP 0: Welcome ──────────────────────────────────────────────────────────
+const StepWelcome = ({ t, params, onNext }) => (
+  <div style={{ display:'flex', gap:48, height:'100%', alignItems:'center' }}>
+    {/* Left */}
+    <div style={{ flex:'0 0 420px', display:'flex', flexDirection:'column', gap:28 }}>
+      <div>
+        <img src="assets/goal-logo-white.png" alt="Goal" style={{ height:40, width:'auto', marginBottom:24, display:'block', opacity:0.95 }}/>
+        <p style={{ fontSize:11, fontWeight:700, letterSpacing:'0.14em', textTransform:'uppercase', color:'#42dcc6', marginBottom:12 }}>
+          {t.tagline}
+        </p>
+        <h1 style={{ fontSize:52, fontWeight:900, lineHeight:1.05, color:'#dde4e1', letterSpacing:'-0.01em', whiteSpace:'pre-line' }}>
+          {t.w_title}
+        </h1>
+      </div>
+      <p style={{ fontSize:16, lineHeight:1.65, color:'#bbcac5', maxWidth:360 }}>{t.w_sub}</p>
+      <button
+        onClick={onNext}
+        style={{
+          background:'#42dcc6', color:'#003730', border:'none', cursor:'pointer',
+          fontFamily:'Space Grotesk', fontSize:14, fontWeight:700, letterSpacing:'0.08em',
+          textTransform:'uppercase', padding:'14px 32px', alignSelf:'flex-start',
+          transition:'background 0.2s, transform 0.15s', display:'flex', alignItems:'center', gap:10,
+        }}
+        onMouseEnter={e => e.currentTarget.style.background='#67f9e2'}
+        onMouseLeave={e => e.currentTarget.style.background='#42dcc6'}
+      >
+        {t.w_cta}
+        <Icon name="arrow_forward" size={18} style={{ color:'#003730' }} />
+      </button>
+      {/* Feature pills */}
+      <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginTop:4 }}>
+        {t.w_features.map(f => (
+          <div key={f.label} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', border:'1px solid #464a6c', fontSize:12, fontWeight:600, letterSpacing:'0.04em', color:'#bbcac5' }}>
+            <Icon name={f.icon} size={15} style={{ color:'#42dcc6' }} />
+            {f.label}
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* Right — visual */}
+    <div style={{ flex:1, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', position:'relative' }}>
+      {/* Command center mockup */}
+      <div style={{ width:'100%', maxWidth:560, background:'#0d1228', border:'1.5px solid #1c2341', padding:24, position:'relative' }}>
+        {/* Header bar */}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid #1c2341', paddingBottom:14, marginBottom:20 }}>
+          <span style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'#42dcc6', textTransform:'uppercase' }}>SYS.GOAL // COMMAND</span>
+          <div style={{ display:'flex', gap:6 }}>
+            {['#42dcc6','#fae374','#ff7775'].map((c,i) => <div key={i} style={{ width:8, height:8, background:c, opacity:0.7 }} />)}
+          </div>
+        </div>
+        {/* Mini grid of stat cards */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:20 }}>
+          {[
+            { label:'Active Vehicles', val:'4,092', trend:'+2.3%', color:'#42dcc6' },
+            { label:'On-Time Rate', val:'94.7%', trend:'+0.8%', color:'#83e287' },
+            { label:'Route Coverage', val:'312 km', trend:'→', color:'#bec5eb' },
+          ].map(s => (
+            <div key={s.label} style={{ background:'#111633', padding:14, borderLeft:`2px solid ${s.color}` }}>
+              <div style={{ fontSize:9, letterSpacing:'0.1em', textTransform:'uppercase', color:'#859490', marginBottom:6 }}>{s.label}</div>
+              <div style={{ fontSize:20, fontWeight:700, color:s.color }}>{s.val}</div>
+              <div style={{ fontSize:10, color:'#42dcc6', marginTop:4 }}>{s.trend}</div>
+            </div>
+          ))}
+        </div>
+        {/* Fake route lines */}
+        <div style={{ background:'#111633', padding:16, position:'relative', overflow:'hidden' }}>
+          <div style={{ fontSize:9, letterSpacing:'0.1em', textTransform:'uppercase', color:'#859490', marginBottom:12 }}>Live Fleet Map</div>
+          <svg width="100%" height="90" viewBox="0 0 460 90" fill="none">
+            <line x1="20" y1="45" x2="440" y2="45" stroke="#464a6c" strokeWidth="1"/>
+            <line x1="140" y1="10" x2="140" y2="80" stroke="#464a6c" strokeWidth="1"/>
+            <line x1="300" y1="10" x2="300" y2="80" stroke="#464a6c" strokeWidth="1"/>
+            <path d="M 20 70 Q 100 30 200 50 Q 320 70 440 20" stroke="#42dcc6" strokeWidth="1.5" fill="none" opacity="0.8"/>
+            <path d="M 20 30 Q 150 60 280 35 Q 370 20 440 60" stroke="#bec5eb" strokeWidth="1" fill="none" opacity="0.5"/>
+            {[60,160,240,360].map((x,i) => <circle key={i} cx={x} cy={[60,40,52,28][i]} r="4" fill="#42dcc6" opacity="0.9"/>)}
+            {[100,260,420].map((x,i) => <circle key={i} cx={x} cy={[48,42,35][i]} r="3" fill="#00001b" stroke="#42dcc6" strokeWidth="1.5"/>)}
+          </svg>
+        </div>
+        {/* Teal corner accent */}
+        <div style={{ position:'absolute', top:0, right:0, width:3, height:'100%', background:'linear-gradient(180deg,#42dcc6 0%,transparent 100%)' }} />
+      </div>
+    </div>
+  </div>
+);
+
+// ─── STEP 1: Training ─────────────────────────────────────────────────────────
+const StepTraining = ({ t, state, setState }) => {
+  const checked = state.training || {};
+  const toggle = id => setState(s => ({ ...s, training: { ...checked, [id]: !checked[id] } }));
+  const required = t.tr_modules.filter(m => m.tag === 'Required' || m.tag === 'Obligatorio');
+  const allReqDone = required.every(m => checked[m.id]);
+  return (
+    <div style={{ display:'flex', gap:48, height:'100%' }}>
+      <div style={{ flex:'0 0 320px', display:'flex', flexDirection:'column', gap:20, paddingTop:4 }}>
+        <div>
+          <p style={{ fontSize:11, fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', color:'#42dcc6', marginBottom:10 }}>Step 02</p>
+          <h2 style={{ fontSize:36, fontWeight:800, color:'#dde4e1', lineHeight:1.1, marginBottom:12 }}>{t.tr_title}</h2>
+          <p style={{ fontSize:14, lineHeight:1.6, color:'#bbcac5' }}>{t.tr_sub}</p>
+        </div>
+        {/* Progress summary */}
+        <div style={{ background:'#0d1228', border:'1.5px solid #1c2341', padding:20 }}>
+          <div style={{ fontSize:10, letterSpacing:'0.1em', textTransform:'uppercase', color:'#859490', marginBottom:14 }}>Completion</div>
+          <div style={{ fontSize:32, fontWeight:800, color:'#42dcc6', marginBottom:4 }}>
+            {Object.values(checked).filter(Boolean).length}/{t.tr_modules.length}
+          </div>
+          <div style={{ height:3, background:'#464a6c', marginBottom:8 }}>
+            <div style={{ height:'100%', background:'#42dcc6', width:`${(Object.values(checked).filter(Boolean).length/t.tr_modules.length)*100}%`, transition:'width 0.4s' }} />
+          </div>
+          <p style={{ fontSize:11, color: allReqDone ? '#83e287' : '#fae374' }}>
+            {allReqDone ? '✓ Required modules complete' : '⚠ Required modules pending'}
+          </p>
+        </div>
+        <div style={{ fontSize:11, color:'#859490', lineHeight:1.5 }}>
+          Press <kbd style={{ background:'#1c2341', color:'#bbcac5', padding:'1px 5px', fontSize:10, fontFamily:'monospace' }}>↑↓</kbd> to navigate modules
+        </div>
+      </div>
+      <div className="scroll-area" style={{ flex:1, display:'flex', flexDirection:'column', gap:10, paddingRight:4 }}>
+        {t.tr_modules.map((m) => (
+          <div key={m.id} className="check-item gs-card" onClick={() => toggle(m.id)}
+            style={{ display:'flex', alignItems:'center', gap:16, cursor:'pointer', borderColor: checked[m.id] ? '#42dcc6' : '#1c2341', background: checked[m.id] ? 'rgba(66,220,198,0.05)' : '#0d1228' }}>
+            <div className="check-box" style={{
+              width:22, height:22, border:`2px solid ${checked[m.id] ? '#42dcc6' : '#464a6c'}`,
+              background: checked[m.id] ? '#42dcc6' : 'transparent', flexShrink:0,
+              display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.2s',
+            }}>
+              {checked[m.id] && <Icon name="check" size={13} style={{ color:'#003730' }} />}
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
+                <span style={{ fontSize:14, fontWeight:600, color:'#dde4e1' }}>{m.title}</span>
+                <Pill color={m.tag.includes('Oblig') || m.tag === 'Required' ? '#42dcc6' : m.tag === 'Recommended' || m.tag === 'Recomendado' ? '#fae374' : '#859490'}>
+                  {m.tag}
+                </Pill>
+              </div>
+              <p style={{ fontSize:12, color:'#859490' }}>{m.desc}</p>
+            </div>
+            <div style={{ fontSize:11, color:'#859490', letterSpacing:'0.04em', flexShrink:0 }}>{m.dur}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ─── STEP 2: Parametrization ──────────────────────────────────────────────────
+const StepParametrization = ({ t, state, setState }) => {
+  const p = state.params || {};
+  const set = (k,v) => setState(s => ({ ...s, params: { ...p, [k]:v } }));
+  const vehicles = p.vehicles || [];
+  const toggleV = v => set('vehicles', vehicles.includes(v) ? vehicles.filter(x=>x!==v) : [...vehicles, v]);
+  return (
+    <div style={{ display:'flex', gap:48, height:'100%' }}>
+      <div style={{ flex:'0 0 280px', paddingTop:4 }}>
+        <p style={{ fontSize:11, fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', color:'#42dcc6', marginBottom:10 }}>Step 03</p>
+        <h2 style={{ fontSize:36, fontWeight:800, color:'#dde4e1', lineHeight:1.1, marginBottom:12 }}>{t.pa_title}</h2>
+        <p style={{ fontSize:14, lineHeight:1.6, color:'#bbcac5' }}>{t.pa_sub}</p>
+        {/* Summary */}
+        {(p.fleet || p.routes || p.depots) && (
+          <div style={{ marginTop:24, background:'#0d1228', border:'1.5px solid #1c2341', padding:16, display:'flex', flexDirection:'column', gap:10 }}>
+            {p.fleet && <div style={{ display:'flex', justifyContent:'space-between', fontSize:12 }}><span style={{color:'#859490'}}>{t.pa_fleet}</span><span style={{color:'#42dcc6',fontWeight:700}}>{p.fleet}</span></div>}
+            {p.routes && <div style={{ display:'flex', justifyContent:'space-between', fontSize:12 }}><span style={{color:'#859490'}}>{t.pa_routes}</span><span style={{color:'#42dcc6',fontWeight:700}}>{p.routes}</span></div>}
+            {p.depots && <div style={{ display:'flex', justifyContent:'space-between', fontSize:12 }}><span style={{color:'#859490'}}>{t.pa_depots}</span><span style={{color:'#42dcc6',fontWeight:700}}>{p.depots}</span></div>}
+          </div>
+        )}
+      </div>
+      <div className="scroll-area" style={{ flex:1, display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, alignContent:'start', paddingRight:4 }}>
+        {/* Fleet size */}
+        <div className="gs-card" style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          <label style={{ fontSize:11, fontWeight:600, letterSpacing:'0.1em', textTransform:'uppercase', color:'#859490' }}>{t.pa_fleet}</label>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <button onClick={() => set('fleet', Math.max(1,(parseInt(p.fleet)||0)-1))} style={{ background:'#111633', border:'1.5px solid #464a6c', color:'#dde4e1', width:36, height:36, cursor:'pointer', fontSize:18, fontWeight:700, fontFamily:'Space Grotesk' }}>−</button>
+            <input type="number" className="gs-num" value={p.fleet||''} onChange={e=>set('fleet',e.target.value)} placeholder="0"/>
+            <button onClick={() => set('fleet', (parseInt(p.fleet)||0)+1)} style={{ background:'#111633', border:'1.5px solid #464a6c', color:'#dde4e1', width:36, height:36, cursor:'pointer', fontSize:18, fontWeight:700, fontFamily:'Space Grotesk' }}>+</button>
+          </div>
+        </div>
+        {/* Active routes */}
+        <div className="gs-card" style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          <label style={{ fontSize:11, fontWeight:600, letterSpacing:'0.1em', textTransform:'uppercase', color:'#859490' }}>{t.pa_routes}</label>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <button onClick={() => set('routes', Math.max(1,(parseInt(p.routes)||0)-1))} style={{ background:'#111633', border:'1.5px solid #464a6c', color:'#dde4e1', width:36, height:36, cursor:'pointer', fontSize:18, fontWeight:700, fontFamily:'Space Grotesk' }}>−</button>
+            <input type="number" className="gs-num" value={p.routes||''} onChange={e=>set('routes',e.target.value)} placeholder="0"/>
+            <button onClick={() => set('routes', (parseInt(p.routes)||0)+1)} style={{ background:'#111633', border:'1.5px solid #464a6c', color:'#dde4e1', width:36, height:36, cursor:'pointer', fontSize:18, fontWeight:700, fontFamily:'Space Grotesk' }}>+</button>
+          </div>
+        </div>
+        {/* Depots */}
+        <div className="gs-card" style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          <label style={{ fontSize:11, fontWeight:600, letterSpacing:'0.1em', textTransform:'uppercase', color:'#859490' }}>{t.pa_depots}</label>
+          <input type="number" className="gs-input" value={p.depots||''} onChange={e=>set('depots',e.target.value)} placeholder="e.g. 3"/>
+        </div>
+        {/* Timezone */}
+        <div className="gs-card" style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          <label style={{ fontSize:11, fontWeight:600, letterSpacing:'0.1em', textTransform:'uppercase', color:'#859490' }}>{t.pa_timezone}</label>
+          <select className="gs-select" value={p.timezone||''} onChange={e=>set('timezone',e.target.value)}>
+            <option value="">Select…</option>
+            {['UTC','Europe/Madrid','America/New_York','America/Mexico_City','America/Bogota','America/Lima','Asia/Shanghai','America/Sao_Paulo'].map(tz=><option key={tz}>{tz}</option>)}
+          </select>
+        </div>
+        {/* Vehicle types - full width */}
+        <div className="gs-card" style={{ gridColumn:'1/-1', display:'flex', flexDirection:'column', gap:12 }}>
+          <label style={{ fontSize:11, fontWeight:600, letterSpacing:'0.1em', textTransform:'uppercase', color:'#859490' }}>{t.pa_vehicles}</label>
+          <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+            {t.pa_v_opts.map(v => (
+              <div key={v} onClick={() => toggleV(v)}
+                style={{ padding:'8px 16px', border:`1.5px solid ${vehicles.includes(v)?'#42dcc6':'#464a6c'}`, background:vehicles.includes(v)?'rgba(66,220,198,0.08)':'transparent', cursor:'pointer', fontSize:12, fontWeight:600, color:vehicles.includes(v)?'#42dcc6':'#bbcac5', transition:'all 0.2s', letterSpacing:'0.04em' }}>
+                {v}
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Service hours */}
+        <div className="gs-card" style={{ gridColumn:'1/-1', display:'flex', flexDirection:'column', gap:12 }}>
+          <label style={{ fontSize:11, fontWeight:600, letterSpacing:'0.1em', textTransform:'uppercase', color:'#859490' }}>{t.pa_service}</label>
+          <div style={{ display:'flex', gap:16, alignItems:'center' }}>
+            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+              <span style={{ fontSize:10, color:'#859490', letterSpacing:'0.06em', textTransform:'uppercase' }}>{t.pa_from}</span>
+              <input type="time" className="gs-input" style={{ width:140 }} value={p.serviceFrom||'05:00'} onChange={e=>set('serviceFrom',e.target.value)}/>
+            </div>
+            <div style={{ color:'#464a6c', fontSize:20, marginTop:18 }}>→</div>
+            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+              <span style={{ fontSize:10, color:'#859490', letterSpacing:'0.06em', textTransform:'uppercase' }}>{t.pa_to}</span>
+              <input type="time" className="gs-input" style={{ width:140 }} value={p.serviceTo||'23:00'} onChange={e=>set('serviceTo',e.target.value)}/>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── STEP 3: Configuration ────────────────────────────────────────────────────
+const StepConfiguration = ({ t, state, setState }) => {
+  const cfg = state.config || {};
+  const ints = cfg.integrations || {};
+  const roles = cfg.roles !== undefined ? cfg.roles : t.co_roles_list.reduce((a,r)=>({...a,[r.id]:r.active}),{});
+  const notifs = cfg.notifs !== undefined ? cfg.notifs : t.co_notif_list.reduce((a,n)=>({...a,[n.id]:true}),{});
+  const setInt = (id,v) => setState(s => ({ ...s, config:{...cfg, integrations:{...ints,[id]:v}} }));
+  const setRole = (id,v) => setState(s => ({ ...s, config:{...cfg, roles:{...roles,[id]:v}} }));
+  const setNotif = (id,v) => setState(s => ({ ...s, config:{...cfg, notifs:{...notifs,[id]:v}} }));
+
+  return (
+    <div style={{ display:'flex', gap:48, height:'100%' }}>
+      <div style={{ flex:'0 0 260px', paddingTop:4 }}>
+        <p style={{ fontSize:11, fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', color:'#42dcc6', marginBottom:10 }}>Step 04</p>
+        <h2 style={{ fontSize:36, fontWeight:800, color:'#dde4e1', lineHeight:1.1, marginBottom:12 }}>{t.co_title}</h2>
+        <p style={{ fontSize:14, lineHeight:1.6, color:'#bbcac5' }}>{t.co_sub}</p>
+        {/* Active integrations count */}
+        <div style={{ marginTop:24, background:'#0d1228', border:'1.5px solid #1c2341', padding:16 }}>
+          <div style={{ fontSize:10, letterSpacing:'0.1em', textTransform:'uppercase', color:'#859490', marginBottom:8 }}>Active Integrations</div>
+          <div style={{ fontSize:28, fontWeight:800, color:'#42dcc6' }}>{Object.values(ints).filter(Boolean).length}</div>
+        </div>
+      </div>
+      <div className="scroll-area" style={{ flex:1, display:'flex', flexDirection:'column', gap:24, paddingRight:4 }}>
+        {/* Integrations */}
+        <div>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase', color:'#bbcac5', marginBottom:12 }}>{t.co_integrations}</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {t.co_int_list.map(item => (
+              <div key={item.id} className="gs-card" style={{ display:'flex', alignItems:'center', gap:16 }}>
+                <label className="gs-toggle">
+                  <input type="checkbox" checked={!!ints[item.id]} onChange={e=>setInt(item.id,e.target.checked)}/>
+                  <span className="gs-slider"/>
+                </label>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:'#dde4e1', marginBottom:2 }}>{item.label}</div>
+                  <div style={{ fontSize:11, color:'#859490' }}>{item.desc}</div>
+                </div>
+                {ints[item.id] && <Pill color="#83e287">Active</Pill>}
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Roles */}
+        <div>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase', color:'#bbcac5', marginBottom:12 }}>{t.co_roles}</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {t.co_roles_list.map(r => (
+              <div key={r.id} className="gs-card" style={{ display:'flex', alignItems:'center', gap:16 }}>
+                <label className="gs-toggle">
+                  <input type="checkbox" checked={roles[r.id]!==undefined?roles[r.id]:r.active} onChange={e=>setRole(r.id,e.target.checked)}/>
+                  <span className="gs-slider"/>
+                </label>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:'#dde4e1', marginBottom:2 }}>{r.role}</div>
+                  <div style={{ fontSize:11, color:'#859490' }}>{r.access}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Notifications */}
+        <div>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase', color:'#bbcac5', marginBottom:12 }}>{t.co_notif}</div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+            {t.co_notif_list.map(n => (
+              <div key={n.id} onClick={() => setNotif(n.id, !notifs[n.id])}
+                style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 14px', border:`1.5px solid ${notifs[n.id]!==false?'#464a6c':'#1c2341'}`, background: notifs[n.id]!==false?'#0d1228':'transparent', cursor:'pointer', transition:'all 0.2s' }}>
+                <div style={{ width:14, height:14, border:`2px solid ${notifs[n.id]!==false?'#42dcc6':'#464a6c'}`, background:notifs[n.id]!==false?'#42dcc6':'transparent', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  {notifs[n.id]!==false && <Icon name="check" size={9} style={{ color:'#003730' }}/>}
+                </div>
+                <span style={{ fontSize:11, color:notifs[n.id]!==false?'#bbcac5':'#859490', letterSpacing:'0.02em' }}>{n.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── STEP 4: Support & Deployment ─────────────────────────────────────────────
+const StepSupport = ({ t, state, setState }) => {
+  const s = state.support || {};
+  const set = (k,v) => setState(st => ({ ...st, support: { ...s, [k]:v } }));
+  const phases = s.phases !== undefined ? s.phases : t.su_phases.reduce((a,p)=>({...a,[p.id]:p.active}),{});
+  const setPhase = (id,v) => setState(st => ({ ...st, support: { ...s, phases:{...phases,[id]:v} } }));
+  return (
+    <div style={{ display:'flex', gap:48, height:'100%' }}>
+      <div style={{ flex:'0 0 280px', paddingTop:4 }}>
+        <p style={{ fontSize:11, fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', color:'#42dcc6', marginBottom:10 }}>Step 05</p>
+        <h2 style={{ fontSize:36, fontWeight:800, color:'#dde4e1', lineHeight:1.1, marginBottom:12 }}>{t.su_title}</h2>
+        <p style={{ fontSize:14, lineHeight:1.6, color:'#bbcac5' }}>{t.su_sub}</p>
+        {/* SLA */}
+        <div style={{ marginTop:24, display:'flex', flexDirection:'column', gap:8 }}>
+          <label style={{ fontSize:11, fontWeight:600, letterSpacing:'0.1em', textTransform:'uppercase', color:'#859490' }}>{t.su_sla}</label>
+          <select className="gs-select" value={s.sla||''} onChange={e=>set('sla',e.target.value)}>
+            <option value="">Select…</option>
+            {t.su_sla_opts.map(o=><option key={o}>{o}</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="scroll-area" style={{ flex:1, display:'flex', flexDirection:'column', gap:28, paddingRight:4 }}>
+        {/* Contact */}
+        <div>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase', color:'#bbcac5', marginBottom:14 }}>{t.su_contact}</div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+            <div style={{ display:'flex', flexDirection:'column', gap:6, gridColumn:'1/-1' }}>
+              <label style={{ fontSize:10, letterSpacing:'0.08em', textTransform:'uppercase', color:'#859490' }}>Name</label>
+              <input className="gs-input" placeholder={t.su_contact_name} value={s.contactName||''} onChange={e=>set('contactName',e.target.value)}/>
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+              <label style={{ fontSize:10, letterSpacing:'0.08em', textTransform:'uppercase', color:'#859490' }}>Email</label>
+              <input className="gs-input" type="email" placeholder={t.su_contact_email} value={s.contactEmail||''} onChange={e=>set('contactEmail',e.target.value)}/>
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+              <label style={{ fontSize:10, letterSpacing:'0.08em', textTransform:'uppercase', color:'#859490' }}>Phone</label>
+              <input className="gs-input" type="tel" placeholder={t.su_contact_phone} value={s.contactPhone||''} onChange={e=>set('contactPhone',e.target.value)}/>
+            </div>
+          </div>
+        </div>
+        {/* Timeline */}
+        <div>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase', color:'#bbcac5', marginBottom:14 }}>{t.su_timeline}</div>
+          <div style={{ position:'relative', paddingLeft:28 }}>
+            {/* Vertical line */}
+            <div style={{ position:'absolute', left:9, top:12, bottom:12, width:2, background:'#1c2341' }}/>
+            <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+              {t.su_phases.map((ph,i) => {
+                const active = phases[ph.id]!==undefined ? phases[ph.id] : ph.active;
+                return (
+                  <div key={ph.id} onClick={() => setPhase(ph.id, !active)} style={{ display:'flex', alignItems:'flex-start', gap:14, cursor:'pointer', position:'relative' }}>
+                    {/* Node */}
+                    <div style={{ position:'absolute', left:-28, top:0, width:20, height:20, border:`2px solid ${active?'#42dcc6':'#464a6c'}`, background:active?'#42dcc6':'#00001b', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1 }}>
+                      {active && <Icon name="check" size={11} style={{ color:'#003730' }}/>}
+                    </div>
+                    <div className="gs-card" style={{ flex:1, borderColor:active?'#464a6c':'#1c2341', background:active?'#0d1228':'transparent' }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                        <span style={{ fontSize:13, fontWeight:600, color: active?'#dde4e1':'#859490' }}>{ph.label}</span>
+                        {active && <Pill color="#42dcc6">{t.su_ready}</Pill>}
+                      </div>
+                      <p style={{ fontSize:11, color:'#859490', marginTop:4 }}>{ph.desc}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── STEP 5: Launch ───────────────────────────────────────────────────────────
+const StepLaunch = ({ t, state }) => {
+  const p = state.params || {};
+  const stats = [
+    { label: t.la_stats[0].label, val: p.fleet || '—' },
+    { label: t.la_stats[1].label, val: p.routes || '—' },
+    { label: t.la_stats[2].label, val: p.depots || '—' },
+  ];
+  return (
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', textAlign:'center', gap:32 }}>
+      {/* Animated icon */}
+      <div style={{ position:'relative', width:120, height:120 }}>
+        <div style={{ position:'absolute', inset:0, border:'2px solid #42dcc6', animation:'spin 8s linear infinite', opacity:0.3 }} />
+        <div style={{ position:'absolute', inset:10, border:'1px solid #42dcc6', animation:'spin 5s linear infinite reverse', opacity:0.5 }} />
+        <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <Icon name="check_circle" size={52} style={{ color:'#42dcc6' }}/>
+        </div>
+      </div>
+      <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
+      <div>
+        <img src="assets/goal-logo-white.png" alt="Goal" style={{ height:32, width:'auto', margin:'0 auto 18px', display:'block', opacity:0.6 }}/>
+        <p style={{ fontSize:11, fontWeight:700, letterSpacing:'0.14em', textTransform:'uppercase', color:'#42dcc6', marginBottom:12 }}>SYSTEM READY</p>
+        <h1 style={{ fontSize:48, fontWeight:900, color:'#dde4e1', lineHeight:1.05, letterSpacing:'-0.01em' }}>{t.la_title}</h1>
+        <p style={{ fontSize:16, color:'#bbcac5', marginTop:14, maxWidth:440, margin:'14px auto 0' }}>{t.la_sub}</p>
+      </div>
+      {/* Stats */}
+      <div style={{ display:'flex', gap:0 }}>
+        {stats.map((s,i) => (
+          <div key={i} style={{ padding:'16px 36px', borderLeft:i>0?'1px solid #1c2341':'none', textAlign:'center' }}>
+            <div style={{ fontSize:28, fontWeight:800, color:'#42dcc6' }}>{s.val}</div>
+            <div style={{ fontSize:10, letterSpacing:'0.1em', textTransform:'uppercase', color:'#859490', marginTop:4 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+      {/* CTAs */}
+      <div style={{ display:'flex', gap:14 }}>
+        <button style={{ background:'#42dcc6', color:'#003730', border:'none', cursor:'pointer', fontFamily:'Space Grotesk', fontSize:14, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', padding:'14px 32px', display:'flex', alignItems:'center', gap:10 }}
+          onMouseEnter={e=>e.currentTarget.style.background='#67f9e2'}
+          onMouseLeave={e=>e.currentTarget.style.background='#42dcc6'}>
+          <Icon name="open_in_new" size={17} style={{ color:'#003730' }} />
+          {t.la_cta}
+        </button>
+        <button style={{ background:'transparent', color:'#bbcac5', border:'1.5px solid #464a6c', cursor:'pointer', fontFamily:'Space Grotesk', fontSize:14, fontWeight:600, letterSpacing:'0.06em', textTransform:'uppercase', padding:'14px 28px' }}
+          onMouseEnter={e=>{e.currentTarget.style.borderColor='#42dcc6';e.currentTarget.style.color='#42dcc6'}}
+          onMouseLeave={e=>{e.currentTarget.style.borderColor='#464a6c';e.currentTarget.style.color='#bbcac5'}}>
+          {t.la_doc}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ─── App Shell ────────────────────────────────────────────────────────────────
+function App() {
+  const TOTAL = 6; // 0=welcome, 1=training, 2=params, 3=config, 4=support, 5=launch
+  const saved = JSON.parse(localStorage.getItem('gs_onboard')||'{}');
+  const [step, setStep] = useState(saved.step||0);
+  const [dir, setDir] = useState('fwd'); // fwd | bwd
+  const [lang, setLang] = useState(saved.lang||'en');
+  const [state, setGlobalState] = useState(saved.state||{});
+  const [animKey, setAnimKey] = useState(0);
+  const [tweaksOpen, setTweaksOpen] = useState(false);
+  const [accentColor, setAccentColor] = useState(saved.accent||'#42dcc6');
+
+  const t = T[lang];
+
+  // Persist
+  useEffect(() => {
+    localStorage.setItem('gs_onboard', JSON.stringify({ step, lang, state, accent:accentColor }));
+  }, [step, lang, state, accentColor]);
+
+  // Keyboard nav
+  useEffect(() => {
+    const handler = e => {
+      if (e.key === 'ArrowRight' || e.key === 'Enter') goNext();
+      if (e.key === 'ArrowLeft') goBack();
+      if (e.key === 'Escape') setTweaksOpen(false);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [step]);
+
+  const go = (n, d) => {
+    setDir(d);
+    setAnimKey(k => k+1);
+    setStep(n);
+  };
+  const goNext = () => { if (step < TOTAL-1) go(step+1,'fwd'); };
+  const goBack = () => { if (step > 0) go(step-1,'bwd'); };
+
+  const stepComponents = [
+    <StepWelcome key={0} t={t} params={state.params} onNext={goNext}/>,
+    <StepTraining key={1} t={t} state={state} setState={setGlobalState}/>,
+    <StepParametrization key={2} t={t} state={state} setState={setGlobalState}/>,
+    <StepConfiguration key={3} t={t} state={state} setState={setGlobalState}/>,
+    <StepSupport key={4} t={t} state={state} setState={setGlobalState}/>,
+    <StepLaunch key={5} t={t} state={state}/>,
+  ];
+
+  const isLast = step === TOTAL-1;
+  const isFirst = step === 0;
+
+  // RTL support for Arabic
+  useEffect(() => {
+    const isRTL = lang === 'ar';
+    document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
+    document.documentElement.lang = lang;
+  }, [lang]);
+
+  // Expose global step navigator for PPTX capture
+  useEffect(() => {
+    window.__gsGoToStep = (n) => go(n, n >= step ? 'fwd' : 'bwd');
+    window.__gsSetLang = (l) => setLang(l);
+  });
+
+  // Register tweaks listener
+  useEffect(() => {
+    const handler = e => {
+      if (e.data?.type === '__activate_edit_mode') setTweaksOpen(true);
+      if (e.data?.type === '__deactivate_edit_mode') setTweaksOpen(false);
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
+  return (
+    <div style={{ position:'relative', zIndex:1, height:'100vh', display:'flex', flexDirection:'column' }}>
+
+      {/* ── Top bar ── */}
+      <div style={{ height:60, borderBottom:'1px solid #1c2341', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 32px', flexShrink:0, background:'#00001b' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+          <img src="assets/goal-logo-white.png" alt="Goal" style={{ height:28, width:'auto', display:'block' }}/>
+          <div style={{ width:1, height:18, background:'#464a6c' }}/>
+          <span style={{ fontSize:11, color:'#859490', letterSpacing:'0.04em' }}>{t.tagline}</span>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:20 }}>
+          {/* Lang toggle */}
+          <div style={{ display:'flex', border:'1px solid #464a6c', overflow:'hidden' }}>
+            {['en','es','pt','it','fr','nl','ar'].map(l => (
+              <button key={l} onClick={()=>setLang(l)} style={{ padding:'5px 10px', fontSize:10, fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', cursor:'pointer', fontFamily:'Space Grotesk', border:'none', borderLeft: l!=='en'?'1px solid #464a6c':'none', background:lang===l?accentColor:'transparent', color:lang===l?'#003730':'#859490', transition:'all 0.2s' }}>{l}</button>
+            ))}
+          </div>
+          {/* Step counter */}
+          {step > 0 && <span style={{ fontSize:11, color:'#859490', letterSpacing:'0.06em' }}>{t.progress(step, TOTAL-1)}</span>}
+        </div>
+      </div>
+
+      {/* ── Progress (steps 1-4) ── */}
+      {step > 0 && step < TOTAL-1 && (
+        <div style={{ padding:'20px 80px 16px', borderBottom:'1px solid #111633', flexShrink:0, background:'#00001b' }}>
+          <ProgressBar step={step-1} total={TOTAL-2} labels={t.steps.slice(1,-1)} />
+        </div>
+      )}
+
+      {/* ── Content ── */}
+      <div style={{ flex:1, overflow:'hidden', padding: step===0 || step===TOTAL-1 ? '32px 64px' : '24px 64px' }}>
+        <div key={animKey} className={dir==='fwd' ? 'slide-enter' : 'slide-enter-back'} style={{ height:'100%' }}>
+          {stepComponents[step]}
+        </div>
+      </div>
+
+      {/* ── Bottom nav ── */}
+      {!isFirst && (
+        <div style={{ height:72, borderTop:'1px solid #1c2341', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 64px', flexShrink:0, background:'#00001b' }}>
+          <button onClick={goBack} style={{ background:'transparent', border:'1.5px solid #464a6c', color:'#bbcac5', cursor:'pointer', fontFamily:'Space Grotesk', fontSize:13, fontWeight:600, letterSpacing:'0.06em', textTransform:'uppercase', padding:'10px 24px', display:'flex', alignItems:'center', gap:8, transition:'border-color 0.2s' }}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor=accentColor;e.currentTarget.style.color=accentColor}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor='#464a6c';e.currentTarget.style.color='#bbcac5'}}>
+            <Icon name="arrow_back" size={16}/> {t.back}
+          </button>
+          <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+            <span style={{ fontSize:10, color:'#859490', letterSpacing:'0.06em' }}>↑↓ / ←→ navigate</span>
+            {!isLast && (
+              <button onClick={() => go(TOTAL-1,'fwd')} style={{ background:'transparent', border:'none', color:'#859490', cursor:'pointer', fontFamily:'Space Grotesk', fontSize:12, fontWeight:600, letterSpacing:'0.06em', textTransform:'uppercase', padding:'10px', transition:'color 0.2s' }}
+                onMouseEnter={e=>e.currentTarget.style.color=accentColor}
+                onMouseLeave={e=>e.currentTarget.style.color='#859490'}>
+                {t.skip} →
+              </button>
+            )}
+            {!isLast && (
+              <button onClick={goNext} style={{ background:accentColor, color:'#003730', border:'none', cursor:'pointer', fontFamily:'Space Grotesk', fontSize:13, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', padding:'11px 28px', display:'flex', alignItems:'center', gap:8, transition:'background 0.2s' }}
+                onMouseEnter={e=>e.currentTarget.style.background='#67f9e2'}
+                onMouseLeave={e=>e.currentTarget.style.background=accentColor}>
+                {t.next} <Icon name="arrow_forward" size={16} style={{ color:'#003730' }}/>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Tweaks Panel ── */}
+      <div id="tweaks-panel" className={tweaksOpen ? 'visible' : ''}>
+        <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase', color:'#42dcc6', borderBottom:'1px solid #464a6c', paddingBottom:12, marginBottom:4 }}>Tweaks</div>
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          <label style={{ fontSize:11, color:'#859490', textTransform:'uppercase', letterSpacing:'0.08em' }}>Accent Color</label>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            {['#42dcc6','#67f9e2','#bec5eb','#fae374','#83e287'].map(c => (
+              <div key={c} onClick={() => setAccentColor(c)} style={{ width:22, height:22, background:c, cursor:'pointer', border:accentColor===c?'2px solid #dde4e1':'2px solid transparent', transition:'border 0.2s' }}/>
+            ))}
+          </div>
+          <label style={{ fontSize:11, color:'#859490', textTransform:'uppercase', letterSpacing:'0.08em', marginTop:4 }}>Language</label>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+            {['en','es','pt','it','fr','nl','ar'].map(l => (
+              <button key={l} onClick={()=>setLang(l)} style={{ padding:'5px 8px', fontSize:10, fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', cursor:'pointer', fontFamily:'Space Grotesk', border:`1.5px solid ${lang===l?'#42dcc6':'#464a6c'}`, background:lang===l?'rgba(66,220,198,0.1)':'transparent', color:lang===l?'#42dcc6':'#859490', transition:'all 0.2s' }}>{l.toUpperCase()}</button>
+            ))}
+          </div>
+          <label style={{ fontSize:11, color:'#859490', textTransform:'uppercase', letterSpacing:'0.08em', marginTop:4 }}>Jump to Step</label>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+            {[0,1,2,3,4,5].map(n => (
+              <button key={n} onClick={() => go(n, n>step?'fwd':'bwd')} style={{ padding:'4px 10px', fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:'Space Grotesk', border:`1.5px solid ${step===n?'#42dcc6':'#464a6c'}`, background:step===n?'rgba(66,220,198,0.1)':'transparent', color:step===n?'#42dcc6':'#859490', transition:'all 0.2s' }}>
+                {n===0?'W':n===5?'✓':n}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

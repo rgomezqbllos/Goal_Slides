@@ -1,0 +1,11 @@
+.DS_Store
+node_modules/
+.env
+.od/
+dist/
+build/
+.tempmediaStorage/
+browser/
+*.png
+*.webp
+*.log

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Goal Slide Editor</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #00001b; font-family: 'Space Grotesk', sans-serif; overflow: hidden; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #464a6c; border-radius: 2px; }
+  .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined'; font-weight: normal; font-style: normal;
+    line-height: 1; letter-spacing: normal; text-transform: none; white-space: nowrap;
+    word-wrap: normal; direction: ltr; -webkit-font-smoothing: antialiased;
+  }
+  input[type="color"] { cursor: pointer; }
+  button:focus { outline: none; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: #42dcc6 !important; }
+  textarea { resize: vertical; }
+  select { appearance: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Load block components first, then editor shell, then presenter -->
+<script type="text/babel" src="editor/Blocks.jsx"></script>
+<script type="text/babel" src="editor/Presenter.jsx"></script>
+<script type="text/babel" src="editor/EditorShell.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+// ─── Default project ──────────────────────────────────────────────────────────
+function makeDefaultProject() {
+  // Welcome slide
+  const welcomeSlide = SLIDE_TEMPLATES.find(t => t.id === 'welcome').make();
+  welcomeSlide.label = 'Welcome';
+
+  // Checklist slide
+  const checkSlide = SLIDE_TEMPLATES.find(t => t.id === 'checklist').make();
+  checkSlide.label = 'Training';
+
+  // Timeline slide
+  const timeSlide = SLIDE_TEMPLATES.find(t => t.id === 'timeline').make();
+  timeSlide.label = 'Timeline';
+
+  // Metrics slide
+  const metricsSlide = SLIDE_TEMPLATES.find(t => t.id === 'metrics').make();
+  metricsSlide.label = 'KPIs';
+
+  // Table + chart
+  const dataSlide = SLIDE_TEMPLATES.find(t => t.id === 'table-chart').make();
+  dataSlide.label = 'Data';
+
+  // Launch slide
+  const launchSlide = SLIDE_TEMPLATES.find(t => t.id === 'launch').make();
+  launchSlide.label = 'Launch';
+
+  return {
+    meta: {
+      clientName: '',
+      logoSrc: 'assets/goal-logo-white.png',
+      accent: '#42dcc6',
+      lang: 'en',
+    },
+    slides: [welcomeSlide, checkSlide, timeSlide, metricsSlide, dataSlide, launchSlide],
+  };
+}
+
+// ─── localStorage persistence ─────────────────────────────────────────────────
+function loadProject() {
+  try {
+    const raw = localStorage.getItem('gs_slide_editor_project');
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return makeDefaultProject();
+}
+
+function saveProject(p) {
+  try { localStorage.setItem('gs_slide_editor_project', JSON.stringify(p)); } catch (e) {}
+}
+window.saveProject = saveProject;
+
+// ─── HTML Export ──────────────────────────────────────────────────────────────
+function exportAsHTML(project) {
+  const data = JSON.stringify(project);
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>${project.meta.clientName || 'Presentation'} — Goal Systems</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"><\/script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"><\/script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"><\/script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"><\/script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #000; overflow: hidden; font-family: 'Space Grotesk', sans-serif; }
+.material-symbols-outlined { font-family: 'Material Symbols Outlined'; font-weight: normal; font-style: normal; line-height: 1; letter-spacing: normal; text-transform: none; white-space: nowrap; word-wrap: normal; direction: ltr; -webkit-font-smoothing: antialiased; }
+<\/style>
+</head>
+<body>
+<div id="root"></div>
+<script>window.__PROJECT__ = ${data};<\/script>
+<script type="text/babel" src="editor/Blocks.jsx"><\/script>
+<script type="text/babel">
+const project = window.__PROJECT__;
+const slides = project.slides;
+const meta = project.meta;
+let idx = parseInt(localStorage.getItem('gs_pres_idx') || '0');
+if (idx >= slides.length) idx = 0;
+
+function go(n) {
+  idx = Math.max(0, Math.min(slides.length - 1, n));
+  localStorage.setItem('gs_pres_idx', idx);
+  render();
+}
+
+function render() {
+  const slide = { ...slides[idx], slideNum: (idx+1) + ' / ' + slides.length };
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    React.createElement(PresenterMode, { project, onExit: () => {} })
+  );
+}
+
+function PresenterMode({ project }) {
+  const [i, setI] = React.useState(idx);
+  React.useEffect(() => {
+    const h = (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') setI(n => Math.min(project.slides.length-1, n+1));
+      if (e.key === 'ArrowLeft') setI(n => Math.max(0, n-1));
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
+  React.useEffect(() => { localStorage.setItem('gs_pres_idx', i); }, [i]);
+  const slide = { ...project.slides[i], slideNum: (i+1) + ' / ' + project.slides.length };
+  const scale = Math.min(window.innerWidth/1920, window.innerHeight/1080);
+  return React.createElement('div', { style: { position:'fixed', inset:0, background:'#000', display:'flex', alignItems:'center', justifyContent:'center' } },
+    React.createElement('div', { style: { width:1920, height:1080, transform:'scale('+scale+')', transformOrigin:'center' } },
+      React.createElement(SlideView, { slide, lang:project.meta.lang||'en', accent:project.meta.accent||'#42dcc6', logoSrc:project.meta.logoSrc, clientName:project.meta.clientName, mode:'present' })
+    ),
+    i > 0 && React.createElement('button', { onClick:()=>setI(n=>n-1), style:{ position:'fixed', left:20, top:'50%', transform:'translateY(-50%)', background:'rgba(0,0,0,0.5)', border:'1px solid #464a6c', color:'#bbcac5', cursor:'pointer', padding:'14px 10px' } }, React.createElement('span', { className:'material-symbols-outlined' }, 'arrow_back')),
+    i < project.slides.length-1 && React.createElement('button', { onClick:()=>setI(n=>n+1), style:{ position:'fixed', right:20, top:'50%', transform:'translateY(-50%)', background:'rgba(0,0,0,0.5)', border:'1px solid #464a6c', color:'#bbcac5', cursor:'pointer', padding:'14px 10px' } }, React.createElement('span', { className:'material-symbols-outlined' }, 'arrow_forward')),
+    React.createElement('div', { style:{ position:'fixed', bottom:20, left:'50%', transform:'translateX(-50%)', color:'#464a6c', fontSize:11, fontFamily:'Space Grotesk', letterSpacing:'0.1em' } }, (i+1) + ' / ' + project.slides.length)
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(PresenterMode, { project }));
+<\/script>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${(project.meta.clientName || 'presentation').replace(/\s+/g,'-').toLowerCase()}-slides.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── JSON Import ──────────────────────────────────────────────────────────────
+function importJSON(setProject) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const p = JSON.parse(ev.target.result);
+        setProject(p);
+      } catch (err) {
+        alert('Invalid JSON file.');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// ─── App ──────────────────────────────────────────────────────────────────────
+function App() {
+  const [project, setProjectRaw] = useState(loadProject);
+  const [presenting, setPresenting] = useState(false);
+
+  const setProject = (p) => {
+    const resolved = typeof p === 'function' ? p(project) : p;
+    setProjectRaw(resolved);
+    saveProject(resolved);
+  };
+
+  // Keyboard shortcut: P to present
+  useEffect(() => {
+    const h = (e) => {
+      if (e.key === 'F5' || (e.key === 'p' && (e.metaKey || e.ctrlKey))) {
+        e.preventDefault();
+        setPresenting(true);
+      }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
+
+  if (presenting) {
+    return (
+      <PresenterMode
+        project={project}
+        onExit={() => setPresenting(false)}
+      />
+    );
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <EditorShell
+        project={project}
+        setProject={setProject}
+        onPresent={() => setPresenting(true)}
+        onExportHTML={() => exportAsHTML(project)}
+      />
+      {/* Import JSON button — bottom left */}
+      <button
+        onClick={() => importJSON(setProject)}
+        title="Import project JSON"
+        style={{
+          position: 'fixed', bottom: 16, left: 16, zIndex: 999,
+          background: '#0d1228', border: '1px solid #464a6c', color: '#859490',
+          cursor: 'pointer', fontFamily: 'Space Grotesk', fontSize: 10,
+          fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
+          padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 5,
+        }}>
+        <span className="material-symbols-outlined" style={{ fontSize: 13, fontVariationSettings: "'FILL' 0,'wght' 300" }}>upload</span>
+        Import JSON
+      </button>
+      {/* Reset button */}
+      <button
+        onClick={() => { if (confirm('Reset to default project?')) { setProject(makeDefaultProject()); } }}
+        title="Reset project"
+        style={{
+          position: 'fixed', bottom: 16, left: 120, zIndex: 999,
+          background: '#0d1228', border: '1px solid #464a6c', color: '#859490',
+          cursor: 'pointer', fontFamily: 'Space Grotesk', fontSize: 10,
+          fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
+          padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 5,
+        }}>
+        <span className="material-symbols-outlined" style={{ fontSize: 13, fontVariationSettings: "'FILL' 0,'wght' 300" }}>restart_alt</span>
+        Reset
+      </button>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
