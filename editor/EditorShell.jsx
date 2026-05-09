@@ -1394,11 +1394,14 @@ ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(
 function AutosaveBadge({ fileName, status, accent, fsaAvailable, onConnect, onSaveAs, onDisconnect, onFlush, flash }) {
   // Not connected yet
   if (!fileName) {
+    const insecure = typeof window !== 'undefined' && window.isSecureContext === false;
     return (
       <button onClick={onConnect}
         title={fsaAvailable
           ? 'Pick a JSON file once — every change auto-saves to it (⌘S)'
-          : 'Auto-save needs Chrome / Edge / Brave. Click to download instead.'}
+          : insecure
+            ? 'Auto-save needs a secure context. Open the app via http://localhost:PORT/ instead of [::] / IP.'
+            : 'Auto-save needs Chrome / Edge / Brave (with secure context).'}
         style={{
           background: 'transparent',
           border: `1px solid ${fsaAvailable ? accent : '#464a6c'}`,
@@ -1694,10 +1697,25 @@ function EditorShell({ project, setProject, onPresent, onExportHTML }) {
   // Connect (or replace) the linked file. Must be triggered by a user gesture.
   const connectFile = async (forceNew = false) => {
     if (!FSA_AVAILABLE) {
+      // Chrome/Edge actually do support FSA, but only in secure contexts.
+      // Most common cause: serving from "[::]" or LAN IP instead of localhost.
+      const insecure = typeof window !== 'undefined' && window.isSecureContext === false;
+      const host = typeof location !== 'undefined' ? location.host : '';
+      const port = typeof location !== 'undefined' ? (location.port || '8000') : '8000';
+      const path = typeof location !== 'undefined' ? location.pathname : '/Goal%20Slide%20Editor.html';
       alert(
-        'Tu navegador no soporta auto-guardado a archivo.\n\n' +
-        'Usa Chrome, Edge o Brave para activar esta función.\n' +
-        'Mientras tanto puedes usar Export JSON para descargar el proyecto.'
+        insecure
+          ? 'Estás accediendo a la app por una URL no segura (' + host + ').\n\n' +
+            'La API de auto-guardado a archivo requiere "contexto seguro": HTTPS, ' +
+            'localhost, 127.0.0.1 o [::1].\n\n' +
+            'Abre la app por una de estas URLs:\n' +
+            '   http://localhost:' + port + path + '\n' +
+            '   http://127.0.0.1:' + port + path + '\n\n' +
+            'Tip: lanza el server con --bind 127.0.0.1 para evitar este problema:\n' +
+            '   python3 -m http.server ' + port + ' --bind 127.0.0.1'
+          : 'Tu navegador no soporta auto-guardado a archivo.\n\n' +
+            'Usa Chrome, Edge o Brave para activar esta función.\n' +
+            'Mientras tanto puedes usar Export JSON para descargar el proyecto.'
       );
       return;
     }
