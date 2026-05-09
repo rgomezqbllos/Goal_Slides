@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Goal Systems — Diagram Library</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: #00001b;
+    color: #dde4e1;
+    min-height: 100vh;
+  }
+  .grid-bg {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(66,220,198,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(66,220,198,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  a { color: inherit; text-decoration: none; }
+  .pill {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 3px 10px; border: 1px solid currentColor;
+    white-space: nowrap; display: inline-block;
+  }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* Card */
+  .card {
+    background: #0a0e22; border: 1.5px solid #1c2341;
+    transition: border-color 0.25s, transform 0.25s;
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .card.live:hover { border-color: #42dcc6; }
+  .card.soon { opacity: 0.55; cursor: not-allowed; }
+  .card-thumb {
+    aspect-ratio: 16 / 10; background: #060819;
+    border-bottom: 1px solid #1c2341; position: relative; overflow: hidden;
+  }
+  .corner-accent {
+    position: absolute; top: 0; right: 0; width: 3px; height: 100%;
+    background: linear-gradient(180deg, #42dcc6 0%, transparent 100%);
+  }
+  .card.live:hover .corner-accent { background: linear-gradient(180deg, #67f9e2 0%, transparent 100%); }
+
+  /* Animated thumbnail — route */
+  @keyframes thumbBus {
+    0%   { offset-distance: 0%; }
+    100% { offset-distance: 100%; }
+  }
+  @keyframes dashFlow { to { stroke-dashoffset: -28; } }
+
+  .thumb-bus {
+    position: absolute; width: 18px; height: 18px;
+    background: #42dcc6; border-radius: 50%;
+    border: 2px solid #00001b;
+    box-shadow: 0 0 0 6px rgba(66,220,198,0.18);
+    offset-path: path('M 30 30 C 220 30, 270 30, 270 90 C 270 150, 30 130, 30 200 C 30 240, 270 250, 270 280');
+    offset-rotate: 0deg;
+    animation: thumbBus 5s linear infinite;
+  }
+  .thumb-pin {
+    position: absolute; width: 12px; height: 12px;
+    border: 2px solid var(--c, #42dcc6);
+    background: #0a0e22;
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #42dcc6; color: #003730; border: none;
+    font-family: 'Space Grotesk'; font-size: 12px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 11px 20px; cursor: pointer; transition: background 0.2s;
+  }
+  .btn:hover { background: #67f9e2; }
+  .btn-ghost {
+    background: transparent; color: #42dcc6;
+    border: 1px solid #42dcc6;
+  }
+  .btn-ghost:hover { background: rgba(66,220,198,0.08); color: #67f9e2; }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+
+<div style="position:relative; z-index:1;">
+
+  <!-- Header -->
+  <header style="padding:24px 48px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1c2341;">
+    <div style="display:flex; align-items:center; gap:14px;">
+      <img src="assets/goal-logo-white.png" alt="Goal" style="height:24px; opacity:0.95;"/>
+      <span style="width:1px; height:18px; background:#464a6c;"></span>
+      <span style="font-size:11px; font-weight:700; letter-spacing:0.14em; color:#42dcc6; text-transform:uppercase;">
+        Diagram Library
+      </span>
+    </div>
+    <div style="display:flex; align-items:center; gap:16px;">
+      <span class="pill" style="color:#fae374; border-color:#fae374;">v0.1</span>
+      <span class="pill" style="color:#bec5eb; border-color:#bec5eb;">Animated Plugins</span>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section style="padding:64px 48px 48px;">
+    <div style="max-width:1280px; margin:0 auto;">
+      <p style="font-size:11px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; color:#42dcc6; margin-bottom:18px;">
+        Goal Systems · Internal Tooling
+      </p>
+      <h1 style="font-size:72px; font-weight:900; line-height:1; letter-spacing:-0.02em; margin-bottom:24px; max-width:920px;">
+        Animated diagram<br/>
+        <span style="color:#42dcc6;">blocks</span> for slides.
+      </h1>
+      <p style="font-size:17px; line-height:1.65; color:#bbcac5; max-width:620px;">
+        Picks a chart, parametrize it (stops, copy, colors, animation), copy the block,
+        and paste it into any onboarding slide. Each plugin is self-contained and
+        keeps the brand visual language.
+      </p>
+
+      <!-- Quick stats / steps -->
+      <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:0; margin-top:48px; border:1px solid #1c2341;">
+        <div style="padding:22px 24px; border-right:1px solid #1c2341; background:#0d1228;">
+          <div class="mono" style="font-size:11px; color:#42dcc6; letter-spacing:0.12em; margin-bottom:8px;">01 · BROWSE</div>
+          <div style="font-size:14px; color:#bbcac5; line-height:1.5;">Open the gallery and pick a diagram type.</div>
+        </div>
+        <div style="padding:22px 24px; border-right:1px solid #1c2341; background:#0d1228;">
+          <div class="mono" style="font-size:11px; color:#42dcc6; letter-spacing:0.12em; margin-bottom:8px;">02 · PARAMETRIZE</div>
+          <div style="font-size:14px; color:#bbcac5; line-height:1.5;">Tweak copy, colors, animation in the studio.</div>
+        </div>
+        <div style="padding:22px 24px; border-right:1px solid #1c2341; background:#0d1228;">
+          <div class="mono" style="font-size:11px; color:#42dcc6; letter-spacing:0.12em; margin-bottom:8px;">03 · COPY</div>
+          <div style="font-size:14px; color:#bbcac5; line-height:1.5;">Hit <span class="mono" style="color:#fae374;">Copy block</span> to grab the JSX snippet.</div>
+        </div>
+        <div style="padding:22px 24px; background:#0d1228;">
+          <div class="mono" style="font-size:11px; color:#42dcc6; letter-spacing:0.12em; margin-bottom:8px;">04 · INSERT</div>
+          <div style="font-size:14px; color:#bbcac5; line-height:1.5;">Paste in any slide that loads the plugin file.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Catalog -->
+  <section style="padding:32px 48px 96px;">
+    <div style="max-width:1280px; margin:0 auto;">
+      <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:24px; padding-bottom:14px; border-bottom:1px solid #1c2341;">
+        <h2 style="font-size:14px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; color:#dde4e1;">
+          Catalog · 1 live, 4 in design
+        </h2>
+        <span class="mono" style="font-size:11px; color:#859490; letter-spacing:0.08em;">
+          GROUPS / FLOW · TIMELINE · DATA · SPATIAL
+        </span>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:24px;">
+
+        <!-- Live: Route -->
+        <a href="Route Diagram.html" class="card live">
+          <div class="card-thumb">
+            <svg width="100%" height="100%" viewBox="0 0 300 310" preserveAspectRatio="xMidYMid meet">
+              <path d="M 30 30 C 220 30, 270 30, 270 90 C 270 150, 30 130, 30 200 C 30 240, 270 250, 270 280"
+                    fill="none" stroke="#1f2647" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 8"/>
+              <path d="M 30 30 C 220 30, 270 30, 270 90 C 270 150, 30 130, 30 200 C 30 240, 270 250, 270 280"
+                    fill="none" stroke="#42dcc6" stroke-width="3" stroke-linecap="round"
+                    stroke-dasharray="6 14" style="animation: dashFlow 1.6s linear infinite;" opacity="0.6"/>
+              <circle cx="30" cy="30" r="9" fill="#0a0e22" stroke="#42dcc6" stroke-width="2"/>
+              <circle cx="270" cy="90" r="9" fill="#42dcc6"/>
+              <circle cx="30" cy="200" r="9" fill="#0a0e22" stroke="#42dcc6" stroke-width="2"/>
+              <circle cx="270" cy="280" r="9" fill="#0a0e22" stroke="#42dcc6" stroke-width="2"/>
+            </svg>
+            <div class="thumb-bus"></div>
+            <div class="corner-accent"></div>
+            <span class="pill" style="position:absolute; top:12px; left:12px; color:#42dcc6; border-color:#42dcc6; background:rgba(10,14,34,0.9);">Live</span>
+          </div>
+          <div style="padding:20px 22px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+              <h3 style="font-size:18px; font-weight:700; color:#dde4e1;">Animated Route</h3>
+              <span class="mono" style="font-size:10px; color:#859490; letter-spacing:0.08em;">DIAG-001</span>
+            </div>
+            <p style="font-size:13px; color:#bbcac5; line-height:1.55; margin-bottom:14px;">
+              A bus traverses a parametric path, lighting up each stop. Optional battery overlay drains as it travels.
+            </p>
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+              <span class="pill" style="color:#bec5eb; border-color:#bec5eb;">Flow</span>
+              <span class="pill" style="color:#83e287; border-color:#83e287;">3–8 stops</span>
+              <span class="pill" style="color:#fae374; border-color:#fae374;">Battery</span>
+            </div>
+          </div>
+        </a>
+
+        <!-- Coming soon: Timeline -->
+        <div class="card soon">
+          <div class="card-thumb">
+            <svg width="100%" height="100%" viewBox="0 0 300 200" preserveAspectRatio="xMidYMid meet">
+              <line x1="20" y1="100" x2="280" y2="100" stroke="#1f2647" stroke-width="2"/>
+              <line x1="20" y1="100" x2="160" y2="100" stroke="#42dcc6" stroke-width="2"/>
+              <circle cx="20"  cy="100" r="6" fill="#42dcc6"/>
+              <circle cx="80"  cy="100" r="6" fill="#42dcc6"/>
+              <circle cx="160" cy="100" r="6" fill="#42dcc6"/>
+              <circle cx="220" cy="100" r="6" fill="#0a0e22" stroke="#464a6c" stroke-width="2"/>
+              <circle cx="280" cy="100" r="6" fill="#0a0e22" stroke="#464a6c" stroke-width="2"/>
+              <text x="20"  y="135" fill="#859490" font-size="9" font-family="JetBrains Mono">Q1</text>
+              <text x="80"  y="135" fill="#859490" font-size="9" font-family="JetBrains Mono">Q2</text>
+              <text x="160" y="135" fill="#859490" font-size="9" font-family="JetBrains Mono">Q3</text>
+              <text x="220" y="135" fill="#859490" font-size="9" font-family="JetBrains Mono">Q4</text>
+            </svg>
+            <span class="pill" style="position:absolute; top:12px; left:12px; color:#fae374; border-color:#fae374; background:rgba(10,14,34,0.9);">In Design</span>
+          </div>
+          <div style="padding:20px 22px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+              <h3 style="font-size:18px; font-weight:700; color:#dde4e1;">Timeline / Roadmap</h3>
+              <span class="mono" style="font-size:10px; color:#859490; letter-spacing:0.08em;">DIAG-002</span>
+            </div>
+            <p style="font-size:13px; color:#bbcac5; line-height:1.55; margin-bottom:14px;">
+              Horizontal milestones with progress indicator. Phases reveal sequentially.
+            </p>
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+              <span class="pill" style="color:#bec5eb; border-color:#bec5eb;">Timeline</span>
+              <span class="pill" style="color:#859490; border-color:#859490;">Soon</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Coming soon: Counter -->
+        <div class="card soon">
+          <div class="card-thumb" style="display:flex; align-items:center; justify-content:center;">
+            <div class="mono" style="font-size:64px; font-weight:700; color:#42dcc6; letter-spacing:-0.02em;">94<span style="color:#464a6c;">.7</span><span style="font-size:24px; color:#859490;">%</span></div>
+            <span class="pill" style="position:absolute; top:12px; left:12px; color:#fae374; border-color:#fae374; background:rgba(10,14,34,0.9);">In Design</span>
+          </div>
+          <div style="padding:20px 22px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+              <h3 style="font-size:18px; font-weight:700; color:#dde4e1;">KPI Counter</h3>
+              <span class="mono" style="font-size:10px; color:#859490; letter-spacing:0.08em;">DIAG-003</span>
+            </div>
+            <p style="font-size:13px; color:#bbcac5; line-height:1.55; margin-bottom:14px;">
+              Animated number ticker for headline metrics. Easing, prefix/suffix, format.
+            </p>
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+              <span class="pill" style="color:#bec5eb; border-color:#bec5eb;">Data</span>
+              <span class="pill" style="color:#859490; border-color:#859490;">Soon</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Coming soon: Network -->
+        <div class="card soon">
+          <div class="card-thumb">
+            <svg width="100%" height="100%" viewBox="0 0 300 200" preserveAspectRatio="xMidYMid meet">
+              <line x1="60" y1="60" x2="150" y2="100" stroke="#1f2647" stroke-width="1.5"/>
+              <line x1="240" y1="60" x2="150" y2="100" stroke="#1f2647" stroke-width="1.5"/>
+              <line x1="60" y1="150" x2="150" y2="100" stroke="#42dcc6" stroke-width="1.5"/>
+              <line x1="240" y1="150" x2="150" y2="100" stroke="#42dcc6" stroke-width="1.5"/>
+              <circle cx="150" cy="100" r="14" fill="#42dcc6"/>
+              <circle cx="60" cy="60" r="9" fill="#0a0e22" stroke="#bec5eb" stroke-width="2"/>
+              <circle cx="240" cy="60" r="9" fill="#0a0e22" stroke="#bec5eb" stroke-width="2"/>
+              <circle cx="60" cy="150" r="9" fill="#0a0e22" stroke="#fae374" stroke-width="2"/>
+              <circle cx="240" cy="150" r="9" fill="#0a0e22" stroke="#fae374" stroke-width="2"/>
+            </svg>
+            <span class="pill" style="position:absolute; top:12px; left:12px; color:#fae374; border-color:#fae374; background:rgba(10,14,34,0.9);">In Design</span>
+          </div>
+          <div style="padding:20px 22px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+              <h3 style="font-size:18px; font-weight:700; color:#dde4e1;">Network / Hub</h3>
+              <span class="mono" style="font-size:10px; color:#859490; letter-spacing:0.08em;">DIAG-004</span>
+            </div>
+            <p style="font-size:13px; color:#bbcac5; line-height:1.55; margin-bottom:14px;">
+              Central hub with radiating nodes. Pulses travel along edges to show data flow.
+            </p>
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+              <span class="pill" style="color:#bec5eb; border-color:#bec5eb;">Spatial</span>
+              <span class="pill" style="color:#859490; border-color:#859490;">Soon</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Coming soon: Stages -->
+        <div class="card soon">
+          <div class="card-thumb">
+            <svg width="100%" height="100%" viewBox="0 0 300 200" preserveAspectRatio="xMidYMid meet">
+              <rect x="20"  y="80" width="60" height="40" fill="#42dcc6" opacity="0.9"/>
+              <rect x="90"  y="80" width="60" height="40" fill="#42dcc6" opacity="0.6"/>
+              <rect x="160" y="80" width="60" height="40" fill="#42dcc6" opacity="0.3"/>
+              <rect x="230" y="80" width="60" height="40" fill="none" stroke="#464a6c" stroke-width="1.5"/>
+              <line x1="80"  y1="100" x2="90"  y2="100" stroke="#42dcc6" stroke-width="1.5"/>
+              <line x1="150" y1="100" x2="160" y2="100" stroke="#42dcc6" stroke-width="1.5"/>
+              <line x1="220" y1="100" x2="230" y2="100" stroke="#464a6c" stroke-width="1.5"/>
+            </svg>
+            <span class="pill" style="position:absolute; top:12px; left:12px; color:#fae374; border-color:#fae374; background:rgba(10,14,34,0.9);">In Design</span>
+          </div>
+          <div style="padding:20px 22px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+              <h3 style="font-size:18px; font-weight:700; color:#dde4e1;">Funnel / Stages</h3>
+              <span class="mono" style="font-size:10px; color:#859490; letter-spacing:0.08em;">DIAG-005</span>
+            </div>
+            <p style="font-size:13px; color:#bbcac5; line-height:1.55; margin-bottom:14px;">
+              Sequential stages with conversion indicators. Drop-off animates between bars.
+            </p>
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+              <span class="pill" style="color:#bec5eb; border-color:#bec5eb;">Data</span>
+              <span class="pill" style="color:#859490; border-color:#859490;">Soon</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Suggest -->
+        <div class="card" style="background:#060819; border-style:dashed; align-items:center; justify-content:center; padding:40px 22px; text-align:center;">
+          <span class="material-symbols-outlined" style="font-size:36px; color:#42dcc6; margin-bottom:12px;">add_chart</span>
+          <h3 style="font-size:16px; font-weight:700; color:#dde4e1; margin-bottom:6px;">Suggest a diagram</h3>
+          <p style="font-size:13px; color:#859490; line-height:1.55; max-width:240px;">
+            Tell us which animated graphic comes next. We'll keep the same visual line.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How to insert -->
+  <section style="padding:0 48px 96px;">
+    <div style="max-width:1280px; margin:0 auto; border:1.5px solid #1c2341; background:#0a0e22;">
+      <div style="display:flex; align-items:center; gap:12px; padding:14px 22px; border-bottom:1px solid #1c2341;">
+        <span class="material-symbols-outlined" style="font-size:16px; color:#42dcc6;">integration_instructions</span>
+        <span style="font-size:11px; font-weight:700; letter-spacing:0.14em; color:#42dcc6; text-transform:uppercase;">How to insert a block in a slide</span>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:0;">
+        <div style="padding:24px 28px; border-right:1px solid #1c2341;">
+          <div class="mono" style="font-size:11px; color:#fae374; letter-spacing:0.12em; margin-bottom:14px;">1. Load the plugin file in your slide deck</div>
+          <pre class="mono" style="font-size:12.5px; line-height:1.7; color:#dde4e1; white-space:pre-wrap;">
+&lt;!-- inside &lt;head&gt; --&gt;
+&lt;script type="text/babel"
+        src="route-diagram.jsx"&gt;&lt;/script&gt;</pre>
+        </div>
+        <div style="padding:24px 28px;">
+          <div class="mono" style="font-size:11px; color:#fae374; letter-spacing:0.12em; margin-bottom:14px;">2. Drop the block where you want it</div>
+          <pre class="mono" style="font-size:12.5px; line-height:1.7; color:#dde4e1; white-space:pre-wrap;">
+&lt;RouteDiagram
+  stops={[...]}
+  speed={1}
+  showBattery
+/&gt;</pre>
+        </div>
+      </div>
+      <div style="padding:18px 22px; border-top:1px solid #1c2341; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;">
+        <span style="font-size:13px; color:#bbcac5;">
+          Each plugin lives as <code class="mono" style="color:#fae374;">&lt;name&gt;-diagram.jsx</code> next to your slide HTML.
+        </span>
+        <a href="Route Diagram.html" class="btn">
+          Open Route studio
+          <span class="material-symbols-outlined" style="font-size:16px;">arrow_forward</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <footer style="padding:24px 48px; border-top:1px solid #1c2341; display:flex; justify-content:space-between; align-items:center;">
+    <span class="mono" style="font-size:10px; color:#859490; letter-spacing:0.12em;">GOAL.SYSTEMS / DIAGRAMS · v0.1</span>
+    <span class="mono" style="font-size:10px; color:#42dcc6; letter-spacing:0.12em;">5 PLUGINS · 1 LIVE</span>
+  </footer>
+</div>
+
+<!-- Editor-mode glue: when this page is loaded inside the editor's modal
+     (URL has ?from=editor), make Live cards forward the flag so the studio
+     also runs in editor mode, and add a banner the user can read. -->
+<script>
+(function () {
+  var fromEditor = /(?:^|[?&])from=editor(?:&|$)/.test(location.search || '');
+  if (!fromEditor) return;
+
+  // Top banner so the user knows this is the embedded picker
+  var banner = document.createElement('div');
+  banner.style.cssText = 'position:sticky;top:0;z-index:10;background:rgba(66,220,198,0.10);' +
+    'border-bottom:1px solid #42dcc6;padding:10px 48px;display:flex;align-items:center;' +
+    'justify-content:space-between;font-family:Space Grotesk,sans-serif;font-size:11px;' +
+    'letter-spacing:0.1em;color:#42dcc6;text-transform:uppercase;font-weight:700;';
+  banner.innerHTML =
+    '<span>Insert mode · pick a Live diagram to add it to the slide</span>' +
+    '<button id="gs-cancel-pick" style="background:transparent;border:1px solid #464a6c;' +
+    'color:#bbcac5;padding:4px 10px;cursor:pointer;font-family:Space Grotesk,sans-serif;' +
+    'font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">Cancel</button>';
+  document.body.insertBefore(banner, document.body.firstChild);
+  document.getElementById('gs-cancel-pick').addEventListener('click', function () {
+    try { window.parent.postMessage({ type: 'gs:diagram-pick:cancel' }, '*'); } catch (e) {}
+  });
+
+  // Forward ?from=editor to live card hrefs so the studio also knows.
+  document.querySelectorAll('a.card.live').forEach(function (a) {
+    var href = a.getAttribute('href') || '';
+    if (!href) return;
+    a.setAttribute('href', href + (href.indexOf('?') === -1 ? '?' : '&') + 'from=editor');
+  });
+})();
+</script>
+</body>
+</html>

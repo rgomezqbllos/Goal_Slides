@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Goal Systems — Route Diagram</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: #00001b;
+    color: #dde4e1;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  .grid-bg {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(66,220,198,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(66,220,198,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .gs-pill {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 3px 10px; border: 1px solid currentColor;
+    white-space: nowrap; display: inline-block;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; }
+
+  /* Bus pulse rings */
+  @keyframes pulseRing {
+    0%   { transform: scale(0.6); opacity: 0.55; }
+    100% { transform: scale(2.4); opacity: 0; }
+  }
+  /* Stop hit animation */
+  @keyframes stopHit {
+    0%   { transform: scale(1);   }
+    40%  { transform: scale(1.18); }
+    100% { transform: scale(1);   }
+  }
+  /* dash flow on completed track */
+  @keyframes dashFlow { to { stroke-dashoffset: -28; } }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div id="root"></div>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="route-diagram.jsx"></script>
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "stopsCount": 5,
+  "speed": 1,
+  "pauseAtStops": true,
+  "showLabels": true,
+  "colorMode": "brand",
+  "busStyle": "badge",
+  "curvature": 0.55,
+  "trackStyle": "dashed",
+  "showProgress": true,
+  "loop": true,
+  "showBattery": true,
+  "batteryStart": 100,
+  "batteryEnd": 5,
+  "batteryHigh": 60,
+  "batteryMid": 25,
+  "stop1Label": "Welcome",
+  "stop1Caption": "Account & access",
+  "stop2Label": "Training",
+  "stop2Caption": "Required modules",
+  "stop3Label": "Parametrization",
+  "stop3Caption": "Operational config",
+  "stop4Label": "Configuration",
+  "stop4Caption": "Integrations & roles",
+  "stop5Label": "Support",
+  "stop5Caption": "SLA & deployment",
+  "stop6Label": "Go Live",
+  "stop6Caption": "Full rollout",
+  "stop7Label": "Operate",
+  "stop7Caption": "Continuous ops",
+  "stop8Label": "Optimize",
+  "stop8Caption": "KPIs & insights"
+}/*EDITMODE-END*/;
+
+// Editor-mode init — when this studio is opened from the slide editor's
+// modal (URL contains ?from=editor), the editor passes the saved tweaks via
+// the URL hash (#tweaks=<encoded JSON>). Merge them into TWEAK_DEFAULTS *before*
+// useTweaks() captures the initial state, so the studio opens with the user's
+// previous configuration.
+(function applyHashTweaks() {
+  try {
+    const m = (location.hash || '').match(/(?:^#|&)tweaks=([^&]+)/);
+    if (!m) return;
+    const data = JSON.parse(decodeURIComponent(m[1]));
+    if (data && typeof data === 'object') Object.assign(TWEAK_DEFAULTS, data);
+  } catch (e) { /* ignore malformed hash */ }
+})();
+const FROM_EDITOR = /(?:^|[?&])from=editor(?:&|$)/.test(location.search || '');
+
+// Stop presets — labels mirror the onboarding flow vocabulary
+const PRESET_STOPS = [
+  { id: 's1', label: 'Welcome',         caption: 'Account & access' },
+  { id: 's2', label: 'Training',        caption: 'Required modules' },
+  { id: 's3', label: 'Parametrization', caption: 'Operational config' },
+  { id: 's4', label: 'Configuration',   caption: 'Integrations & roles' },
+  { id: 's5', label: 'Support',         caption: 'SLA & deployment' },
+  { id: 's6', label: 'Go Live',         caption: 'Full rollout' },
+  { id: 's7', label: 'Operate',         caption: 'Continuous ops' },
+  { id: 's8', label: 'Optimize',        caption: 'KPIs & insights' },
+];
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const stops = useMemo(() => {
+    return Array.from({ length: t.stopsCount }, (_, i) => ({
+      id: `s${i+1}`,
+      label: t[`stop${i+1}Label`] || `Stop ${i+1}`,
+      caption: t[`stop${i+1}Caption`] || '',
+    }));
+  }, [
+    t.stopsCount,
+    t.stop1Label,t.stop1Caption,t.stop2Label,t.stop2Caption,
+    t.stop3Label,t.stop3Caption,t.stop4Label,t.stop4Caption,
+    t.stop5Label,t.stop5Caption,t.stop6Label,t.stop6Caption,
+    t.stop7Label,t.stop7Caption,t.stop8Label,t.stop8Caption,
+  ]);
+
+  return (
+    <div style={{ position:'relative', zIndex:1, minHeight:'100vh', display:'flex', flexDirection:'column' }}>
+      {FROM_EDITOR && <EditorReturnBar tweaks={t} />}
+      <Header />
+      <main style={{ flex:1, display:'flex', alignItems:'stretch', justifyContent:'center', padding:'24px 48px 48px' }}>
+        <div style={{ width:'100%', maxWidth:1280, display:'grid', gridTemplateColumns:'1fr 1.05fr', gap:48, alignItems:'stretch' }}>
+          <SidePanel t={t} stops={stops} />
+          <DiagramFrame>
+            <RouteDiagram
+              stops={stops}
+              speed={t.speed}
+              pauseAtStops={t.pauseAtStops}
+              showLabels={t.showLabels}
+              colorMode={t.colorMode}
+              busStyle={t.busStyle}
+              curvature={t.curvature}
+              trackStyle={t.trackStyle}
+              showProgress={t.showProgress}
+              loop={t.loop}
+              showBattery={t.showBattery}
+              batteryStart={t.batteryStart}
+              batteryEnd={t.batteryEnd}
+              batteryHigh={t.batteryHigh}
+              batteryMid={t.batteryMid}
+            />
+          </DiagramFrame>
+        </div>
+      </main>
+      <BlockSnippet t={t} stops={stops} />
+
+      <TweaksPanel>
+        <TweakSection label="Route" />
+        <TweakSlider label="Stops" value={t.stopsCount} min={3} max={8} step={1}
+                     onChange={v => setTweak('stopsCount', v)} />
+        <TweakSlider label="Curvature" value={t.curvature} min={0} max={1} step={0.05}
+                     onChange={v => setTweak('curvature', v)} />
+        <TweakRadio  label="Track" value={t.trackStyle}
+                     options={['solid', 'dashed']}
+                     onChange={v => setTweak('trackStyle', v)} />
+
+        <TweakSection label="Animation" />
+        <TweakSlider label="Speed" value={t.speed} min={0.2} max={3} step={0.1} unit="×"
+                     onChange={v => setTweak('speed', v)} />
+        <TweakToggle label="Pause at stops" value={t.pauseAtStops}
+                     onChange={v => setTweak('pauseAtStops', v)} />
+        <TweakToggle label="Loop" value={t.loop}
+                     onChange={v => setTweak('loop', v)} />
+        <TweakToggle label="Progress %" value={t.showProgress}
+                     onChange={v => setTweak('showProgress', v)} />
+
+        <TweakSection label="Style" />
+        <TweakRadio  label="Palette" value={t.colorMode}
+                     options={['brand', 'multi']}
+                     onChange={v => setTweak('colorMode', v)} />
+        <TweakSelect label="Bus marker" value={t.busStyle}
+                     options={['badge', 'pin', 'dot', 'plate']}
+                     onChange={v => setTweak('busStyle', v)} />
+        <TweakToggle label="Stop labels" value={t.showLabels}
+                     onChange={v => setTweak('showLabels', v)} />
+
+        <TweakSection label="Battery overlay" />
+        <TweakToggle label="Show battery" value={t.showBattery}
+                     onChange={v => setTweak('showBattery', v)} />
+        <TweakSlider label="Start %" value={t.batteryStart} min={5} max={100} step={1}
+                     onChange={v => setTweak('batteryStart', v)} />
+        <TweakSlider label="End %" value={t.batteryEnd} min={0} max={95} step={1}
+                     onChange={v => setTweak('batteryEnd', v)} />
+        <TweakSlider label="≥ Green at" value={t.batteryHigh} min={1} max={99} step={1}
+                     onChange={v => setTweak('batteryHigh', v)} />
+        <TweakSlider label="≥ Yellow at" value={t.batteryMid} min={1} max={99} step={1}
+                     onChange={v => setTweak('batteryMid', v)} />
+
+        <TweakSection label="Stop content" />
+        {Array.from({ length: t.stopsCount }, (_, i) => i + 1).map(i => (
+          <React.Fragment key={i}>
+            <TweakText label={`#${i} label`} value={t[`stop${i}Label`]}
+                       onChange={v => setTweak(`stop${i}Label`, v)} />
+            <TweakText label={`#${i} caption`} value={t[`stop${i}Caption`]}
+                       onChange={v => setTweak(`stop${i}Caption`, v)} />
+          </React.Fragment>
+        ))}
+      </TweaksPanel>
+    </div>
+  );
+}
+
+// ─── Editor-mode return bar ─────────────────────────────────────────────────
+// Shown only when ?from=editor — gives the user a clear way to commit the
+// current tweaks back to the slide cell, or cancel.
+function EditorReturnBar({ tweaks }) {
+  const send = (type) => {
+    try {
+      window.parent.postMessage(
+        type === 'select'
+          ? { type: 'gs:diagram-pick:select', diagramId: 'route', tweaks }
+          : { type: 'gs:diagram-pick:cancel' },
+        '*'
+      );
+    } catch (e) { /* ignore */ }
+  };
+  return (
+    <div style={{
+      position:'sticky', top:0, zIndex:50,
+      background:'rgba(66,220,198,0.10)',
+      borderBottom:'1px solid #42dcc6',
+      padding:'10px 48px',
+      display:'flex', alignItems:'center', justifyContent:'space-between',
+      fontFamily:"'Space Grotesk', sans-serif",
+    }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+        <span className="material-symbols-outlined" style={{ fontSize:18, color:'#42dcc6' }}>animation</span>
+        <span style={{ fontSize:11, fontWeight:700, letterSpacing:'0.12em', color:'#42dcc6', textTransform:'uppercase' }}>
+          Configuring diagram for slide
+        </span>
+        <span style={{ fontSize:10, color:'#859490', letterSpacing:'0.06em' }}>
+          · adjust tweaks below, then insert
+        </span>
+      </div>
+      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+        <button onClick={() => send('cancel')} style={{
+          background:'transparent', border:'1px solid #464a6c', color:'#bbcac5',
+          padding:'7px 14px', cursor:'pointer', fontFamily:"'Space Grotesk', sans-serif",
+          fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase',
+        }}>Cancel</button>
+        <button onClick={() => send('select')} style={{
+          background:'#42dcc6', border:'1px solid #42dcc6', color:'#003730',
+          padding:'7px 16px', cursor:'pointer', fontFamily:"'Space Grotesk', sans-serif",
+          fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase',
+          display:'flex', alignItems:'center', gap:6,
+        }}>
+          <span className="material-symbols-outlined" style={{ fontSize:14 }}>check</span>
+          Use in slide
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Header ──────────────────────────────────────────────────────────────────
+function Header() {
+  return (
+    <header style={{ padding:'24px 48px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid #1c2341' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+        <a href="Diagram Library.html" style={{ display:'flex', alignItems:'center', gap:14, textDecoration:'none' }}>
+          <img src="assets/goal-logo-white.png" alt="Goal" style={{ height:24, opacity:0.95 }}/>
+          <span style={{ width:1, height:18, background:'#464a6c' }} />
+          <span style={{ fontSize:11, fontWeight:700, letterSpacing:'0.14em', color:'#42dcc6', textTransform:'uppercase' }}>
+            Diagram Library
+          </span>
+        </a>
+        <span style={{ fontSize:11, fontWeight:500, letterSpacing:'0.06em', color:'#859490', textTransform:'uppercase' }}>
+          / Route · v0.1
+        </span>
+      </div>
+      <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+        <span className="gs-pill" style={{ color:'#fae374', borderColor:'#fae374' }}>Animated</span>
+        <span className="gs-pill" style={{ color:'#bec5eb', borderColor:'#bec5eb' }}>Parametric</span>
+      </div>
+    </header>
+  );
+}
+
+// ─── Side panel with metadata & instructions ────────────────────────────────
+function SidePanel({ t, stops }) {
+  return (
+    <aside style={{ display:'flex', flexDirection:'column', gap:24, paddingTop:8 }}>
+      <div>
+        <p style={{ fontSize:11, fontWeight:700, letterSpacing:'0.14em', textTransform:'uppercase', color:'#42dcc6', marginBottom:14 }}>
+          DIAG-001 · ROUTE
+        </p>
+        <h1 style={{ fontSize:48, fontWeight:900, lineHeight:1.05, letterSpacing:'-0.01em', color:'#dde4e1', marginBottom:18 }}>
+          Animated route<br/>diagram.
+        </h1>
+        <p style={{ fontSize:15, lineHeight:1.65, color:'#bbcac5', maxWidth:440 }}>
+          A vehicle traverses a parametric path, lighting up each stop as it passes.
+          Drop it into any slide to visualize a multi-stage journey — onboarding,
+          deployment, customer lifecycle.
+        </p>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:0, border:'1px solid #1c2341' }}>
+        {[
+          { k: 'STOPS',     v: String(stops.length).padStart(2,'0') },
+          { k: 'SPEED',     v: `${t.speed.toFixed(1)}×` },
+          { k: 'PAUSE',     v: t.pauseAtStops ? 'ON' : 'OFF' },
+          { k: 'PALETTE',   v: t.colorMode === 'brand' ? 'BRAND' : 'MULTI' },
+        ].map((s, i) => (
+          <div key={s.k} style={{
+            padding:'16px 18px',
+            borderRight: i % 2 === 0 ? '1px solid #1c2341' : 'none',
+            borderBottom: i < 2 ? '1px solid #1c2341' : 'none',
+            background:'#0d1228',
+          }}>
+            <div style={{ fontSize:10, letterSpacing:'0.12em', color:'#859490', marginBottom:6 }}>{s.k}</div>
+            <div style={{ fontSize:22, fontWeight:700, color:'#dde4e1', fontVariantNumeric:'tabular-nums' }}>{s.v}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ borderLeft:'2px solid #42dcc6', paddingLeft:16 }}>
+        <div style={{ fontSize:10, letterSpacing:'0.12em', color:'#42dcc6', marginBottom:8, textTransform:'uppercase', fontWeight:700 }}>
+          Block · {stops.length} stops · {t.colorMode}
+        </div>
+        <p style={{ fontSize:13, lineHeight:1.6, color:'#bbcac5' }}>
+          Edit copy, paradas, batería y estilo desde el panel <span style={{ color:'#42dcc6' }}>Tweaks</span>.
+          Cuando esté listo, copia el bloque desde el panel inferior y pégalo en cualquier slide
+          que cargue <code style={{ color:'#fae374', fontFamily:"'JetBrains Mono', monospace", fontSize:12 }}>route-diagram.jsx</code>.
+        </p>
+      </div>
+
+      <div style={{ display:'flex', alignItems:'center', gap:10, fontSize:11, color:'#859490', letterSpacing:'0.04em' }}>
+        <span className="material-symbols-outlined" style={{ fontSize:16, color:'#42dcc6' }}>tune</span>
+        Open <span style={{ color:'#dde4e1' }}>Tweaks</span> from the toolbar to parametrize.
+      </div>
+    </aside>
+  );
+}
+
+// ─── Frame around the diagram ───────────────────────────────────────────────
+function DiagramFrame({ children }) {
+  return (
+    <div style={{
+      background:'#0a0e22', border:'1.5px solid #1c2341',
+      position:'relative', display:'flex', flexDirection:'column',
+      minHeight: 640,
+    }}>
+      {/* faux window header */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                    padding:'12px 16px', borderBottom:'1px solid #1c2341' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <span className="material-symbols-outlined" style={{ fontSize:14, color:'#42dcc6' }}>route</span>
+          <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.14em', color:'#42dcc6', textTransform:'uppercase' }}>
+            ROUTE.SVG
+          </span>
+        </div>
+        <div style={{ display:'flex', gap:6 }}>
+          {['#42dcc6','#fae374','#ff7775'].map((c,i) => <div key={i} style={{ width:8, height:8, background:c, opacity:0.7 }} />)}
+        </div>
+      </div>
+      <div style={{ flex:1, position:'relative', display:'flex', alignItems:'stretch', justifyContent:'stretch' }}>
+        {children}
+      </div>
+      {/* corner accent */}
+      <div style={{ position:'absolute', top:0, right:0, width:3, height:'100%',
+                    background:'linear-gradient(180deg,#42dcc6 0%,transparent 100%)' }} />
+    </div>
+  );
+}
+
+// ─── Block snippet — copyable code to drop into a slide ───────────────────
+function BlockSnippet({ t, stops }) {
+  const [copied, setCopied] = useState(false);
+  const snippet = useMemo(() => {
+    const stopsJson = stops.map(s => `    { id:'${s.id}', label:${JSON.stringify(s.label)}, caption:${JSON.stringify(s.caption)} },`).join('\n');
+    return `<RouteDiagram
+  stops={[
+${stopsJson}
+  ]}
+  speed={${t.speed}}
+  ${t.pauseAtStops ? 'pauseAtStops' : ''}
+  ${t.loop ? 'loop' : ''}
+  curvature={${t.curvature}}
+  trackStyle="${t.trackStyle}"
+  colorMode="${t.colorMode}"
+  busStyle="${t.busStyle}"
+  showLabels={${t.showLabels}}
+  showProgress={${t.showProgress}}${t.showBattery ? `
+  showBattery
+  batteryStart={${t.batteryStart}}
+  batteryEnd={${t.batteryEnd}}
+  batteryHigh={${t.batteryHigh}}
+  batteryMid={${t.batteryMid}}` : ''}
+/>`;
+  }, [t, stops]);
+
+  const copy = () => {
+    navigator.clipboard.writeText(snippet);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  };
+
+  return (
+    <section style={{ padding:'0 48px 48px' }}>
+      <div style={{ maxWidth:1280, margin:'0 auto', border:'1.5px solid #1c2341', background:'#0a0e22' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', borderBottom:'1px solid #1c2341' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            <span className="material-symbols-outlined" style={{ fontSize:16, color:'#42dcc6' }}>code_blocks</span>
+            <span style={{ fontSize:11, fontWeight:700, letterSpacing:'0.14em', color:'#42dcc6', textTransform:'uppercase' }}>Block · ready to insert</span>
+            <span style={{ fontSize:11, color:'#859490', letterSpacing:'0.06em' }}>
+              Pega este bloque en cualquier slide que cargue
+              <code style={{ color:'#fae374', fontFamily:"'JetBrains Mono', monospace", margin:'0 6px' }}>route-diagram.jsx</code>
+            </span>
+          </div>
+          <button onClick={copy}
+            style={{ background: copied ? '#42dcc6' : 'transparent', color: copied ? '#003730' : '#42dcc6',
+              border:'1px solid #42dcc6', padding:'8px 14px', cursor:'pointer',
+              fontFamily:'Space Grotesk', fontSize:11, fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase',
+              display:'flex', alignItems:'center', gap:8, transition:'all 0.2s' }}>
+            <span className="material-symbols-outlined" style={{ fontSize:14 }}>{copied ? 'check' : 'content_copy'}</span>
+            {copied ? 'Copied' : 'Copy block'}
+          </button>
+        </div>
+        <pre style={{ margin:0, padding:'18px 22px', fontFamily:"'JetBrains Mono', ui-monospace, monospace",
+                      fontSize:12.5, lineHeight:1.7, color:'#dde4e1', overflowX:'auto', whiteSpace:'pre' }}>
+{snippet}
+        </pre>
+      </div>
+    </section>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

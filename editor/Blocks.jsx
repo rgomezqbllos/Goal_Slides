@@ -440,6 +440,52 @@ function BlockImage({ content, isSelected, onTransformChange }) {
   );
 }
 
+// ─── BLOCK: Diagram ──────────────────────────────────────────────────────────
+// Renders a registered animated diagram (see animation diagrams/diagrams-registry.jsx).
+// Content shape: { diagramId: 'route', tweaks: { ... } }
+function BlockDiagram({ content, editorMode }) {
+  const diagramId = content && content.diagramId;
+  const reg = (typeof window !== 'undefined' && window.GS_DIAGRAMS) || null;
+  const def = diagramId && reg ? reg[diagramId] : null;
+
+  // Empty state — no diagram chosen yet.
+  if (!def) {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', height: '100%', minHeight: '5em', gap: '0.5em',
+        background: 'repeating-linear-gradient(45deg,#0d1228 0,#0d1228 10px,#111633 10px,#111633 20px)',
+      }}>
+        <GIcon name="animation" size="2.25em" color="#42dcc6"/>
+        <span style={{ fontSize: '0.625em', color: '#42dcc6', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700 }}>
+          Diagram block
+        </span>
+        <span style={{ fontSize: '0.5625em', color: '#859490', letterSpacing: '0.04em' }}>
+          {editorMode ? 'Open the Diagram Library from the right panel' : 'No diagram configured'}
+        </span>
+      </div>
+    );
+  }
+
+  const Comp = def.getComponent && def.getComponent();
+  if (!Comp) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100%', minHeight:'5em', color:'#ff7775', fontSize:'0.625em', textAlign:'center', padding:'1em' }}>
+        Diagram plugin "{diagramId}" is not loaded.
+      </div>
+    );
+  }
+  const tweaks = (content && content.tweaks) || def.defaultTweaks || {};
+  const props  = def.tweaksToProps ? def.tweaksToProps(tweaks) : tweaks;
+  // Wrap in a sized container so the renderer (which uses ResizeObserver) gets
+  // proper dimensions inside the slide cell.
+  return (
+    <div style={{ width:'100%', height:'100%', minHeight:'5em', position:'relative', overflow:'hidden' }}>
+      <Comp {...props}/>
+    </div>
+  );
+}
+
 // ─── BLOCK: Empty ────────────────────────────────────────────────────────────
 function BlockEmpty({ editorMode }) {
   return (
@@ -511,6 +557,7 @@ function BlockRenderer({ cell, lang, accent, editorMode, isSelected, onTransform
   else if (t === 'cta')       inner = <BlockCTA       content={resolvedContent} accent={accent} onNavigate={onNavigate}/>;
   else if (t === 'divider')   inner = <BlockDivider   content={resolvedContent} accent={accent}/>;
   else if (t === 'image')     inner = <BlockImage     content={resolvedContent} isSelected={isSelected} onTransformChange={onTransformChange}/>;
+  else if (t === 'diagram')   inner = <BlockDiagram   content={resolvedContent} editorMode={editorMode}/>;
   else                        inner = <BlockEmpty editorMode={editorMode}/>;
 
   // When the block has its own animation (and items aren't standalone-animated),
@@ -629,6 +676,7 @@ const BLOCKS_META = [
   { id:'cta',       label:'CTA',       icon:'smart_button' },
   { id:'divider',   label:'Divider',   icon:'horizontal_rule' },
   { id:'image',     label:'Image',     icon:'image' },
+  { id:'diagram',   label:'Diagram',   icon:'animation' },
 ];
 
 // ─── Block Default Content ───────────────────────────────────────────────────
@@ -677,6 +725,7 @@ const BLOCK_DEFAULTS = {
   divider:   { en:{ style:'accent', label:'' }, es:{ style:'accent', label:'' } },
   image:     { en:{ src:'', alt:'', caption:'', fit:'cover', align:'center', imgScale:1, imgRotation:0, imgX:0, imgY:0 },
                es:{ src:'', alt:'', caption:'', fit:'cover', align:'center', imgScale:1, imgRotation:0, imgX:0, imgY:0 } },
+  diagram:   { en:{ diagramId:null, tweaks:{} }, es:{ diagramId:null, tweaks:{} } },
   empty:     { en:{}, es:{} },
 };
 
