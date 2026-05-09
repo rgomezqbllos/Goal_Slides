@@ -45,6 +45,36 @@
       stop7Label: 'Operate',         stop7Caption: 'Continuous ops',
       stop8Label: 'Optimize',        stop8Caption: 'KPIs & insights',
     },
+    // Schema consumed by the slide editor's right-panel inline form.
+    // Types: 'section' | 'number' | 'boolean' | 'select' | 'stops'
+    schema: [
+      { type:'section', label:'Route' },
+      { type:'number',  key:'stopsCount',  label:'Stops',     min:3, max:8,  step:1 },
+      { type:'number',  key:'curvature',   label:'Curvature', min:0, max:1,  step:0.05 },
+      { type:'select',  key:'trackStyle',  label:'Track',     options:['solid','dashed'] },
+
+      { type:'section', label:'Animation' },
+      { type:'number',  key:'speed',        label:'Speed', min:0.2, max:3, step:0.1 },
+      { type:'boolean', key:'pauseAtStops', label:'Pause at stops' },
+      { type:'boolean', key:'loop',         label:'Loop' },
+      { type:'boolean', key:'showProgress', label:'Show progress %' },
+
+      { type:'section', label:'Style' },
+      { type:'select',  key:'colorMode', label:'Palette',     options:['brand','multi'] },
+      { type:'select',  key:'busStyle',  label:'Bus marker',  options:['badge','pin','dot','plate'] },
+      { type:'boolean', key:'showLabels', label:'Stop labels' },
+
+      { type:'section', label:'Battery overlay' },
+      { type:'boolean', key:'showBattery',  label:'Show battery' },
+      { type:'number',  key:'batteryStart', label:'Start %',     min:5, max:100, step:1 },
+      { type:'number',  key:'batteryEnd',   label:'End %',       min:0, max:95,  step:1 },
+      { type:'number',  key:'batteryHigh',  label:'≥ Green at',  min:1, max:99,  step:1 },
+      { type:'number',  key:'batteryMid',   label:'≥ Yellow at', min:1, max:99,  step:1 },
+
+      // Special editor that walks stop1Label/stop1Caption … driven by stopsCount
+      { type:'stops', key:'_stops', label:'Stop content',
+        countKey:'stopsCount', labelKeyPattern:'stop{N}Label', captionKeyPattern:'stop{N}Caption' },
+    ],
     // Convert the studio tweak object (flat keys with stopNLabel/stopNCaption)
     // into the props that <RouteDiagram> expects.
     tweaksToProps(t) {
