@@ -147,6 +147,67 @@ function setContainerRows(slide, containerPath, fn) {
   return setAtPath(slide, containerPath, cell => ({ ...cell, rows: fn(cell.rows || []) }));
 }
 
+// ─── Drag-and-drop reorder ────────────────────────────────────────────────────
+// Move a cell from `fromPath` to a position relative to `toPath`. `position` is
+// 'before' or 'after'. For v1, only moves within the same parent container are
+// supported; cross-container moves are silently rejected (returns slide
+// unchanged) so the operation is safe to call from drop handlers.
+function moveCellInSlide(slide, fromPath, toPath, position = 'before') {
+  if (!fromPath || !toPath) return slide;
+  if (pathsEqual(fromPath, toPath)) return slide;
+  // Don't allow moving a cell into one of its own descendants.
+  if (isPathPrefix(fromPath, toPath)) return slide;
+
+  const fromParent = fromPath.slice(0, -1);
+  const toParent   = toPath.slice(0, -1);
+  // Restrict to same parent container (rows array). Cross-container would
+  // require remapping after deletion; out of scope for v1.
+  if (JSON.stringify(fromParent) !== JSON.stringify(toParent)) return slide;
+
+  const sourceCell = getCellAtPath(slide, fromPath);
+  if (!sourceCell) return slide;
+
+  const [fromRi, fromCi] = fromPath[fromPath.length - 1];
+  const [toRi,   toCi]   = toPath[toPath.length - 1];
+
+  return setContainerRows(slide, fromParent, (rows) => {
+    // 1) Remove from source row.
+    const stripped = rows.map((row, ri) => {
+      if (ri !== fromRi) return row;
+      return {
+        ...row,
+        cols:  row.cols.filter((_, i)  => i !== fromCi),
+        cells: row.cells.filter((_, i) => i !== fromCi),
+      };
+    });
+
+    // If the source row is now empty, drop it. The target row index has to
+    // shift by 1 if the removed row was above it.
+    const sourceRowEmpty = stripped[fromRi].cells.length === 0;
+    const cleaned = sourceRowEmpty ? stripped.filter((_, i) => i !== fromRi) : stripped;
+    let adjustedToRi = toRi;
+    if (sourceRowEmpty && toRi > fromRi) adjustedToRi -= 1;
+
+    // 2) Adjust column index inside the target row when the removal happened
+    //    in the same row before the target.
+    let adjustedToCi = toCi;
+    if (!sourceRowEmpty && fromRi === toRi && fromCi < toCi) adjustedToCi -= 1;
+
+    // 3) Insert at adjusted position. 'after' = target index + 1.
+    const insertAt = adjustedToCi + (position === 'after' ? 1 : 0);
+
+    return cleaned.map((row, ri) => {
+      if (ri !== adjustedToRi) return row;
+      const newCols  = [...row.cols];
+      const newCells = [...row.cells];
+      const safeIdx  = Math.max(0, Math.min(insertAt, newCells.length));
+      newCols.splice(safeIdx, 0, '1fr');
+      newCells.splice(safeIdx, 0, sourceCell);
+      return { ...row, cols: newCols, cells: newCells };
+    });
+  });
+}
+
 // ─── Array Item Editor ────────────────────────────────────────────────────────
 function ArrayEditor({ items = [], onChange, fields, addLabel = '+ Add item', defaultItem }) {
   const add = () => onChange([...items, { ...defaultItem, id: uid() }]);
@@ -182,7 +243,13 @@ function ArrayEditor({ items = [], onChange, fields, addLabel = '+ Add item', de
 }
 
 // ─── Slide Tree (recursive, path-aware) ──────────────────────────────────────
-function SlideTree({ slide, selPath, selMulti, onSelectPath, onSetMulti, lang, accent }) {
+function SlideTree({ slide, selPath, selMulti, onSelectPath, onSetMulti, onMoveCell, lang, accent }) {
+  // Drag-and-drop state. Tracked at the tree level so a single highlight
+  // exists at any time. dragPath is the cell currently being dragged;
+  // dropMark is { path, position: 'before'|'after' } for the live indicator.
+  const [dragPath, setDragPath] = useS(null);
+  const [dropMark, setDropMark] = useS(null);
+
   if (!slide) return null;
 
   const BLOCK_ICONS = {
@@ -203,6 +270,16 @@ function SlideTree({ slide, selPath, selMulti, onSelectPath, onSetMulti, lang, a
     else onSetMulti([...selMulti, p]);
   };
 
+  // Drop validity — same parent container only (matches moveCellInSlide).
+  const isValidDropTarget = (target) => {
+    if (!dragPath || !target) return false;
+    if (pathsEqual(dragPath, target)) return false;
+    if (isPathPrefix(dragPath, target)) return false;
+    const fromParent = dragPath.slice(0, -1);
+    const toParent   = target.slice(0, -1);
+    return JSON.stringify(fromParent) === JSON.stringify(toParent);
+  };
+
   // Recursive cell renderer
   function renderCell(cell, path, depth) {
     const isSelected = selPath && pathsEqual(path, selPath);
@@ -213,23 +290,71 @@ function SlideTree({ slide, selPath, selMulti, onSelectPath, onSetMulti, lang, a
     const preview = cnt.title || cnt.label || cnt.body?.slice(0, 30) || '';
     const [ri, ci] = path[path.length - 1];
 
+    const isDragSource = dragPath && pathsEqual(dragPath, path);
+    const isDropHere   = dropMark && pathsEqual(dropMark.path, path);
+    const dropPos      = isDropHere ? dropMark.position : null;
+
     return (
       <div key={cell.id || path.toString()}>
-        {/* Cell row */}
+        {/* Drop indicator — before */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          padding: `5px 8px 5px ${14 + depth * 14}px`,
-          marginBottom: 2, cursor: 'pointer',
-          background: isSelected ? 'rgba(66,220,198,0.14)' : checked ? 'rgba(66,220,198,0.07)' : '#0a0f26',
-          border: `1px solid ${isSelected ? accent : checked ? 'rgba(66,220,198,0.35)' : '#1c2341'}`,
-          transition: 'all 0.1s',
-        }}>
+          height: dropPos === 'before' ? 3 : 0,
+          background: accent, marginBottom: dropPos === 'before' ? 2 : 0,
+          transition: 'height 0.08s',
+        }}/>
+
+        {/* Cell row — draggable */}
+        <div
+          draggable={!!onMoveCell}
+          onDragStart={(e) => {
+            e.dataTransfer.effectAllowed = 'move';
+            // Some browsers require non-empty data to allow drop targets.
+            try { e.dataTransfer.setData('text/plain', 'gs-cell'); } catch (_) {}
+            setDragPath(path);
+          }}
+          onDragEnd={() => { setDragPath(null); setDropMark(null); }}
+          onDragOver={(e) => {
+            if (!isValidDropTarget(path)) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const r = e.currentTarget.getBoundingClientRect();
+            const pos = (e.clientY - r.top) > r.height / 2 ? 'after' : 'before';
+            if (!isDropHere || dropMark.position !== pos) setDropMark({ path, position: pos });
+          }}
+          onDragLeave={() => {
+            // Only clear if this row was the active mark; child enters fire leave too.
+            if (isDropHere) setDropMark(null);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            if (dragPath && onMoveCell && isValidDropTarget(path)) {
+              onMoveCell(dragPath, path, dropMark?.position || 'before');
+            }
+            setDragPath(null);
+            setDropMark(null);
+          }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: `5px 8px 5px ${14 + depth * 14}px`,
+            marginBottom: 2, cursor: onMoveCell ? 'grab' : 'pointer',
+            background: isSelected ? 'rgba(66,220,198,0.14)' : checked ? 'rgba(66,220,198,0.07)' : '#0a0f26',
+            border: `1px solid ${isSelected ? accent : checked ? 'rgba(66,220,198,0.35)' : '#1c2341'}`,
+            transition: 'all 0.1s',
+            opacity: isDragSource ? 0.45 : 1,
+          }}>
           {/* Checkbox — only for top-level cells */}
           {isTop && (
             <label style={{ display: 'flex', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
               <input type="checkbox" checked={checked} onChange={() => toggleOne(path)}
                 style={{ accentColor: accent, width: 11, height: 11 }} />
             </label>
+          )}
+          {/* Drag handle (visual cue) */}
+          {onMoveCell && (
+            <span className="material-symbols-outlined" title="Drag to reorder"
+              style={{ fontSize: 12, color: '#3b426b', fontVariationSettings: "'FILL' 0,'wght' 300", flexShrink: 0, cursor: 'grab' }}>
+              drag_indicator
+            </span>
           )}
           {/* Depth indicator */}
           {depth > 0 && (
@@ -253,6 +378,14 @@ function SlideTree({ slide, selPath, selMulti, onSelectPath, onSetMulti, lang, a
             )}
           </div>
         </div>
+
+        {/* Drop indicator — after */}
+        <div style={{
+          height: dropPos === 'after' ? 3 : 0,
+          background: accent, marginTop: dropPos === 'after' ? 0 : 0,
+          marginBottom: dropPos === 'after' ? 2 : 0,
+          transition: 'height 0.08s',
+        }}/>
         {/* Nested rows for container cells */}
         {isContainer && cell.rows && cell.rows.map((subRow, sri) => (
           <div key={subRow.id || sri}>
@@ -497,7 +630,7 @@ function ChartTableLinker({ project, slideIdx, content, setContent }) {
 }
 
 // ─── Properties Panel ─────────────────────────────────────────────────────────
-function PropertiesPanel({ project, slideIdx, selPath, onUpdateCell, onUpdateSlide, lang, setLang, onSelectPath, accent }) {
+function PropertiesPanel({ project, slideIdx, selPath, onUpdateCell, onUpdateSlide, onMoveCell, lang, setLang, onSelectPath, accent }) {
   const slide = project.slides[slideIdx];
   const [selMulti, setSelMulti] = useS([]);
 
@@ -538,6 +671,7 @@ function PropertiesPanel({ project, slideIdx, selPath, onUpdateCell, onUpdateSli
             selMulti={selMulti}
             onSelectPath={(p) => { onSelectPath(p); setSelMulti([]); }}
             onSetMulti={setSelMulti}
+            onMoveCell={onMoveCell}
             lang={lang}
             accent={accent}
           />
@@ -2371,6 +2505,16 @@ function EditorShell({ project, setProject, onPresent, onExportHTML }) {
               selPath={selPath}
               onUpdateCell={updateCell}
               onUpdateSlide={updateSlide}
+              onMoveCell={(fromPath, toPath, position) => {
+                if (!slide) return;
+                const next = moveCellInSlide(slide, fromPath, toPath, position);
+                if (next === slide) return;
+                replaceSlide(selSlide, next);
+                // Recompute the new selection path: source moved, so the
+                // selection that used to point at fromPath is stale. Easiest:
+                // clear it; the user can click the moved cell to re-select.
+                setSelPath(null);
+              }}
               lang={lang}
               setLang={setLang}
               onSelectPath={(p) => setSelPath(p)}
