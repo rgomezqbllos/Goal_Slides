@@ -160,10 +160,10 @@ function App() {
         <TweakRadio  label="Align" value={t.align} options={['left','center','right']}
                      onChange={v => setTweak('align', v)} />
 
-        <TweakSection label="Color thresholds" />
+        <TweakSection label="Color thresholds (% of journey)" />
         {[1,2,3,4].map(i => (
           <React.Fragment key={i}>
-            <TweakSlider label={`#${i} ≥`} value={t[`stop${i}At`] ?? 0} min={0} max={1000} step={0.1}
+            <TweakSlider label={`#${i} %`} value={t[`stop${i}At`] ?? 0} min={0} max={100} step={1}
                          onChange={v => setTweak(`stop${i}At`, v)} />
             <TweakText   label={`#${i} color`} value={t[`stop${i}Color`] || ''}
                          onChange={v => setTweak(`stop${i}Color`, v)} />
