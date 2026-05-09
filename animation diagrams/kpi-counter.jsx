@@ -76,8 +76,9 @@ function KPICounter({
   prefix = '',
   suffix = '%',
   caption = '',
-  size = 'lg',        // 'sm' | 'md' | 'lg' | 'xl'
-  align = 'center',   // 'left' | 'center' | 'right'
+  size = 'lg',         // 'sm' | 'md' | 'lg' | 'xl'
+  align = 'center',    // 'left' | 'center' | 'right' (horizontal)
+  valign = 'middle',   // 'top'  | 'middle' | 'bottom' (vertical)
   colorStops = [
     { at: 0,  color: '#ff7775' },
     { at: 60, color: '#fae374' },
@@ -117,7 +118,8 @@ function KPICounter({
 
   const SIZE_EM = { sm: '2.5em', md: '4em', lg: '6em', xl: '9em' };
   const fontSize = SIZE_EM[size] || SIZE_EM.lg;
-  const justify  = align === 'left' ? 'flex-start' : align === 'right' ? 'flex-end' : 'center';
+  const justifyH = align === 'left'  ? 'flex-start' : align === 'right'  ? 'flex-end' : 'center';
+  const justifyV = valign === 'top'  ? 'flex-start' : valign === 'bottom' ? 'flex-end' : 'center';
 
   // 0..1 progress for optional bar
   const f = parseFloat(from), tval = parseFloat(to);
@@ -125,8 +127,9 @@ function KPICounter({
 
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: justify,
-      justifyContent: 'center', height: '100%', gap: '0.4em', padding: '1em',
+      display: 'flex', flexDirection: 'column',
+      alignItems: justifyH, justifyContent: justifyV,
+      height: '100%', gap: '0.4em', padding: '1em',
     }}>
       <div style={{
         fontSize, fontWeight: 800, letterSpacing: '-0.02em',

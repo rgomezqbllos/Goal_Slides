@@ -46,34 +46,47 @@
       stop8Label: 'Optimize',        stop8Caption: 'KPIs & insights',
     },
     // Schema consumed by the slide editor's right-panel inline form.
-    // Types: 'section' | 'number' | 'boolean' | 'select' | 'stops'
+    // Types: 'section' | 'number' | 'boolean' | 'select' | 'string' | 'stops' | 'colorStops'
+    // Labels and option labels accept either a plain string or a per-locale
+    // map { en, es, … } resolved at render time using the active editor lang.
     schema: [
-      { type:'section', label:'Route' },
-      { type:'number',  key:'stopsCount',  label:'Stops',     min:3, max:8,  step:1 },
-      { type:'number',  key:'curvature',   label:'Curvature', min:0, max:1,  step:0.05 },
-      { type:'select',  key:'trackStyle',  label:'Track',     options:['solid','dashed'] },
+      { type:'section', label:{ en:'Route', es:'Ruta' } },
+      { type:'number',  key:'stopsCount',  label:{ en:'Stops', es:'Paradas' }, min:3, max:8, step:1 },
+      { type:'number',  key:'curvature',   label:{ en:'Curvature', es:'Curvatura' }, min:0, max:1, step:0.05, slider:true },
+      { type:'select',  key:'trackStyle',  label:{ en:'Track', es:'Vía' },
+        options:['solid','dashed'],
+        optionLabels:{ solid:{ en:'Solid', es:'Sólida' }, dashed:{ en:'Dashed', es:'Discontinua' } } },
 
-      { type:'section', label:'Animation' },
-      { type:'number',  key:'speed',        label:'Speed', min:0.2, max:3, step:0.1 },
-      { type:'boolean', key:'pauseAtStops', label:'Pause at stops' },
-      { type:'boolean', key:'loop',         label:'Loop' },
-      { type:'boolean', key:'showProgress', label:'Show progress %' },
+      { type:'section', label:{ en:'Animation', es:'Animación' } },
+      { type:'number',  key:'speed',        label:{ en:'Speed', es:'Velocidad' }, min:0.2, max:3, step:0.1, slider:true },
+      { type:'boolean', key:'pauseAtStops', label:{ en:'Pause at stops', es:'Pausar en paradas' } },
+      { type:'boolean', key:'loop',         label:{ en:'Loop', es:'Repetir' } },
+      { type:'boolean', key:'showProgress', label:{ en:'Show progress %', es:'Mostrar progreso %' } },
 
-      { type:'section', label:'Style' },
-      { type:'select',  key:'colorMode', label:'Palette',     options:['brand','multi'] },
-      { type:'select',  key:'busStyle',  label:'Bus marker',  options:['badge','pin','dot','plate'] },
-      { type:'boolean', key:'showLabels', label:'Stop labels' },
+      { type:'section', label:{ en:'Style', es:'Estilo' } },
+      { type:'select',  key:'colorMode', label:{ en:'Palette', es:'Paleta' },
+        options:['brand','multi'],
+        optionLabels:{ brand:{ en:'Brand', es:'Marca' }, multi:{ en:'Multi', es:'Multi' } } },
+      { type:'select',  key:'busStyle',  label:{ en:'Bus marker', es:'Marcador del bus' },
+        options:['badge','pin','dot','plate'],
+        optionLabels:{
+          badge:{ en:'Badge', es:'Insignia' }, pin:{ en:'Pin', es:'Alfiler' },
+          dot:{ en:'Dot', es:'Punto' },        plate:{ en:'Plate', es:'Placa' },
+        } },
+      { type:'boolean', key:'showLabels', label:{ en:'Stop labels', es:'Etiquetas de paradas' } },
 
-      { type:'section', label:'Battery overlay' },
-      { type:'boolean', key:'showBattery',  label:'Show battery' },
-      { type:'number',  key:'batteryStart', label:'Start %',     min:5, max:100, step:1 },
-      { type:'number',  key:'batteryEnd',   label:'End %',       min:0, max:95,  step:1 },
-      { type:'number',  key:'batteryHigh',  label:'≥ Green at',  min:1, max:99,  step:1 },
-      { type:'number',  key:'batteryMid',   label:'≥ Yellow at', min:1, max:99,  step:1 },
+      { type:'section', label:{ en:'Battery overlay', es:'Batería' } },
+      { type:'boolean', key:'showBattery',  label:{ en:'Show battery', es:'Mostrar batería' } },
+      { type:'number',  key:'batteryStart', label:{ en:'Start %', es:'Inicio %' }, min:5, max:100, step:1 },
+      { type:'number',  key:'batteryEnd',   label:{ en:'End %',   es:'Final %'  }, min:0, max:95,  step:1 },
+      { type:'number',  key:'batteryHigh',  label:{ en:'≥ Green at',  es:'≥ Verde en'    }, min:1, max:99, step:1 },
+      { type:'number',  key:'batteryMid',   label:{ en:'≥ Yellow at', es:'≥ Amarillo en' }, min:1, max:99, step:1 },
 
       // Special editor that walks stop1Label/stop1Caption … driven by stopsCount
-      { type:'stops', key:'_stops', label:'Stop content',
-        countKey:'stopsCount', labelKeyPattern:'stop{N}Label', captionKeyPattern:'stop{N}Caption' },
+      { type:'stops', key:'_stops', label:{ en:'Stop content', es:'Contenido de paradas' },
+        countKey:'stopsCount', labelKeyPattern:'stop{N}Label', captionKeyPattern:'stop{N}Caption',
+        i18n:{ en:{ header:'Stop', placeholder:'Stop %s label' },
+                es:{ header:'Parada', placeholder:'Etiqueta de la parada %s' } } },
     ],
     // Convert the studio tweak object (flat keys with stopNLabel/stopNCaption)
     // into the props that <RouteDiagram> expects.
@@ -126,7 +139,8 @@
       suffix: '%',
       caption: 'On-time arrivals',
       size: 'xl',                // sm | md | lg | xl
-      align: 'center',
+      align: 'center',           // left | center | right (horizontal)
+      valign: 'middle',          // top  | middle | bottom (vertical)
       easing: 'ease-out',         // linear | ease-in | ease-out | ease-in-out
       showProgress: false,
       colorStops: [
@@ -149,34 +163,67 @@
         caption:      t.caption      || '',
         size:         t.size         || 'lg',
         align:        t.align        || 'center',
+        valign:       t.valign       || 'middle',
         easing:       t.easing       || 'ease-out',
         showProgress: !!t.showProgress,
         colorStops:   Array.isArray(t.colorStops) ? t.colorStops : [],
       };
     },
     schema: [
-      { type:'section', label:'Value' },
-      { type:'number',  key:'from',     label:'From',     min:-1000000, max:1000000, step:0.1 },
-      { type:'number',  key:'to',       label:'To',       min:-1000000, max:1000000, step:0.1 },
-      { type:'select',  key:'format',   label:'Format',   options:['number','integer','time','date'] },
-      { type:'number',  key:'decimals', label:'Decimals', min:0, max:6, step:1 },
-      { type:'string',  key:'prefix',   label:'Prefix' },
-      { type:'string',  key:'suffix',   label:'Suffix' },
+      { type:'section', label:{ en:'Value', es:'Valor' } },
+      { type:'number',  key:'from',     label:{ en:'From', es:'Desde' }, min:-1000000, max:1000000, step:0.1 },
+      { type:'number',  key:'to',       label:{ en:'To',   es:'Hasta' }, min:-1000000, max:1000000, step:0.1 },
+      { type:'select',  key:'format',   label:{ en:'Format', es:'Formato' },
+        options:['number','integer','time','date'],
+        optionLabels:{
+          number:  { en:'Number',  es:'Número' },
+          integer: { en:'Integer', es:'Entero' },
+          time:    { en:'Time',    es:'Hora' },
+          date:    { en:'Date',    es:'Fecha' },
+        } },
+      { type:'number',  key:'decimals', label:{ en:'Decimals', es:'Decimales' }, min:0, max:6, step:1 },
+      { type:'string',  key:'prefix',   label:{ en:'Prefix', es:'Prefijo' } },
+      { type:'string',  key:'suffix',   label:{ en:'Suffix', es:'Sufijo' } },
 
-      { type:'section', label:'Animation' },
-      { type:'number',  key:'duration',     label:'Duration (ms)', min:0, max:10000, step:50 },
-      { type:'select',  key:'easing',       label:'Easing', options:['linear','ease-in','ease-out','ease-in-out'] },
-      { type:'boolean', key:'showProgress', label:'Show progress bar' },
+      { type:'section', label:{ en:'Animation', es:'Animación' } },
+      { type:'number',  key:'duration',     label:{ en:'Duration (ms)', es:'Duración (ms)' }, min:0, max:10000, step:50 },
+      { type:'select',  key:'easing',       label:{ en:'Easing', es:'Curva' },
+        options:['linear','ease-in','ease-out','ease-in-out'],
+        optionLabels:{
+          linear:        { en:'Linear',      es:'Lineal' },
+          'ease-in':     { en:'Ease in',     es:'Entrada' },
+          'ease-out':    { en:'Ease out',    es:'Salida' },
+          'ease-in-out': { en:'Ease in-out', es:'Entrada-salida' },
+        } },
+      { type:'boolean', key:'showProgress', label:{ en:'Show progress bar', es:'Mostrar barra de progreso' } },
 
-      { type:'section', label:'Style' },
-      { type:'select',  key:'size',  label:'Size',  options:['sm','md','lg','xl'] },
-      { type:'select',  key:'align', label:'Align', options:['left','center','right'] },
+      { type:'section', label:{ en:'Style', es:'Estilo' } },
+      { type:'select',  key:'size',  label:{ en:'Size', es:'Tamaño' },
+        options:['sm','md','lg','xl'],
+        optionLabels:{
+          sm:{ en:'SM', es:'SM' }, md:{ en:'MD', es:'MD' },
+          lg:{ en:'LG', es:'LG' }, xl:{ en:'XL', es:'XL' },
+        } },
+      { type:'select',  key:'align', label:{ en:'Horizontal align', es:'Alineación horizontal' },
+        options:['left','center','right'],
+        optionLabels:{
+          left:   { en:'Left',   es:'Izquierda' },
+          center: { en:'Center', es:'Centro' },
+          right:  { en:'Right',  es:'Derecha' },
+        } },
+      { type:'select',  key:'valign', label:{ en:'Vertical align', es:'Alineación vertical' },
+        options:['top','middle','bottom'],
+        optionLabels:{
+          top:    { en:'Top',    es:'Arriba' },
+          middle: { en:'Middle', es:'Centro' },
+          bottom: { en:'Bottom', es:'Abajo' },
+        } },
 
-      { type:'section', label:'Color thresholds' },
-      { type:'colorStops', key:'colorStops', label:'Stops (≥ value → color)' },
+      { type:'section', label:{ en:'Color thresholds', es:'Umbrales de color' } },
+      { type:'colorStops', key:'colorStops', label:{ en:'Stops (≥ value → color)', es:'Umbrales (≥ valor → color)' } },
 
-      { type:'section', label:'Caption' },
-      { type:'string', key:'caption', label:'Caption text' },
+      { type:'section', label:{ en:'Caption', es:'Subtítulo' } },
+      { type:'string', key:'caption', label:{ en:'Caption text', es:'Texto del subtítulo' } },
     ],
     getComponent() { return window.KPICounter; },
   };
