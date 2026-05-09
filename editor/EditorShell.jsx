@@ -1486,6 +1486,125 @@ function DiagramPickerModal({ mode, currentDiagramId, currentTweaks, onPick, onC
   );
 }
 
+// ─── Schema-driven inline tweaks form (for diagram blocks) ──────────────────
+function DiagramTweaksForm({ def, tweaks, setTweaks, accent }) {
+  const schema = (def && def.schema) || [];
+  if (schema.length === 0) {
+    return (
+      <p style={{ fontSize: 10, color: '#464a6c', lineHeight: 1.6 }}>
+        This diagram has no inline parameters. Use Configure to open the studio.
+      </p>
+    );
+  }
+  // Always render with full snapshot (defaults merged with overrides) so inputs
+  // are controlled even before the cell has any custom tweaks.
+  const merged = { ...(def.defaultTweaks || {}), ...(tweaks || {}) };
+  const setField = (key, value) => setTweaks({ ...merged, [key]: value });
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {schema.map((f, i) => {
+        if (f.type === 'section') {
+          return (
+            <div key={i} style={{
+              fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+              textTransform: 'uppercase', color: accent,
+              marginTop: i === 0 ? 0 : 4, paddingTop: i === 0 ? 0 : 6,
+              borderTop: i === 0 ? 'none' : '1px solid #1c2341',
+            }}>{f.label}</div>
+          );
+        }
+        const v = merged[f.key];
+        if (f.type === 'number') {
+          const decimals = (f.step && f.step < 1) ? 2 : 0;
+          return (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 10, color: '#bbcac5' }}>{f.label}</span>
+                <span style={{ fontSize: 10, color: accent, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                  {Number.isFinite(+v) ? Number(v).toFixed(decimals) : '—'}
+                </span>
+              </div>
+              <input type="range" min={f.min} max={f.max} step={f.step}
+                value={Number.isFinite(+v) ? +v : f.min}
+                onChange={e => setField(f.key, parseFloat(e.target.value))}
+                style={{ width: '100%', accentColor: accent, cursor: 'pointer' }}/>
+            </div>
+          );
+        }
+        if (f.type === 'boolean') {
+          return (
+            <label key={i} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: 'pointer', padding: '2px 0',
+            }}>
+              <span style={{ fontSize: 10, color: '#bbcac5' }}>{f.label}</span>
+              <input type="checkbox" checked={!!v}
+                onChange={e => setField(f.key, e.target.checked)}
+                style={{ accentColor: accent, width: 14, height: 14, cursor: 'pointer' }}/>
+            </label>
+          );
+        }
+        if (f.type === 'select') {
+          return (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: 10, color: '#bbcac5' }}>{f.label}</span>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {f.options.map(opt => (
+                  <button key={opt} onClick={() => setField(f.key, opt)} style={{
+                    padding: '4px 8px', fontSize: 9, fontWeight: 700,
+                    letterSpacing: '0.06em', cursor: 'pointer', textTransform: 'uppercase',
+                    fontFamily: 'Space Grotesk',
+                    border: `1px solid ${v === opt ? accent : '#464a6c'}`,
+                    background: v === opt ? 'rgba(66,220,198,0.10)' : '#0d1228',
+                    color: v === opt ? accent : '#bbcac5',
+                  }}>{opt}</button>
+                ))}
+              </div>
+            </div>
+          );
+        }
+        if (f.type === 'stops') {
+          const count = Math.max(0, parseInt(merged[f.countKey], 10) || 0);
+          const labelKey   = (n) => (f.labelKeyPattern   || 'stop{N}Label').replace('{N}', n);
+          const captionKey = (n) => (f.captionKeyPattern || 'stop{N}Caption').replace('{N}', n);
+          return (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ fontSize: 10, color: '#bbcac5' }}>{f.label}</span>
+              {Array.from({ length: count }, (_, idx) => {
+                const n = idx + 1;
+                return (
+                  <div key={n} style={{
+                    background: '#0d1228', border: '1px solid #1c2341',
+                    padding: '7px 9px', display: 'flex', flexDirection: 'column', gap: 4,
+                  }}>
+                    <div style={{ fontSize: 9, color: '#859490', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                      Stop #{n}
+                    </div>
+                    <input type="text"
+                      value={merged[labelKey(n)] || ''}
+                      placeholder={`Stop ${n} label`}
+                      onChange={e => setField(labelKey(n), e.target.value)}
+                      style={{ background: '#00001b', border: '1px solid #1c2341', color: '#dde4e1',
+                        fontFamily: 'Space Grotesk', fontSize: 11, padding: '5px 8px', outline: 'none' }}/>
+                    <input type="text"
+                      value={merged[captionKey(n)] || ''}
+                      placeholder="Caption"
+                      onChange={e => setField(captionKey(n), e.target.value)}
+                      style={{ background: '#00001b', border: '1px solid #1c2341', color: '#bbcac5',
+                        fontFamily: 'Space Grotesk', fontSize: 10, padding: '5px 8px', outline: 'none' }}/>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        }
+        return null;
+      })}
+    </div>
+  );
+}
+
 // ─── Diagram block — Properties pane editor ─────────────────────────────────
 function DiagramConfigEditor({ content, setContent, accent }) {
   const [pickerMode, setPickerMode] = useS(null); // null | 'gallery' | 'configure'
@@ -1536,18 +1655,34 @@ function DiagramConfigEditor({ content, setContent, accent }) {
               </div>
             </div>
           </div>
-          <button style={btn(true, false)} onClick={() => open('configure')}>
-            <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>tune</span>
-            Configure
-          </button>
-          <button style={btn(false, false)} onClick={() => open('gallery')}>
-            <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>swap_horiz</span>
-            Replace
-          </button>
-          <button style={btn(false, true)} onClick={() => setContent({ diagramId: null, tweaks: {} })}>
-            <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>delete</span>
-            Remove
-          </button>
+          {/* Inline tweaks — primary editing path. Live-updates the diagram. */}
+          <DiagramTweaksForm
+            def={def}
+            tweaks={content && content.tweaks}
+            setTweaks={(next) => setContent({ ...content, tweaks: next })}
+            accent={accent}
+          />
+
+          <div style={{ borderTop: '1px solid #1c2341', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <button style={btn(false, false)} onClick={() => open('configure')}
+              title="Open the visual studio for this diagram in a modal">
+              <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>open_in_new</span>
+              Open visual studio
+            </button>
+            <button style={btn(false, false)} onClick={() => setContent({ ...content, tweaks: { ...(def.defaultTweaks || {}) } })}
+              title="Reset all parameters to the diagram defaults">
+              <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>restart_alt</span>
+              Reset to defaults
+            </button>
+            <button style={btn(false, false)} onClick={() => open('gallery')}>
+              <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>swap_horiz</span>
+              Replace diagram
+            </button>
+            <button style={btn(false, true)} onClick={() => setContent({ diagramId: null, tweaks: {} })}>
+              <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>delete</span>
+              Remove
+            </button>
+          </div>
         </>
       )}
 

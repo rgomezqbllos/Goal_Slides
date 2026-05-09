@@ -475,12 +475,16 @@ function BlockDiagram({ content, editorMode }) {
       </div>
     );
   }
-  const tweaks = (content && content.tweaks) || def.defaultTweaks || {};
+  // Merge user tweaks over defaults so partial cell content still renders.
+  const tweaks = { ...(def.defaultTweaks || {}), ...(content && content.tweaks) };
   const props  = def.tweaksToProps ? def.tweaksToProps(tweaks) : tweaks;
-  // Wrap in a sized container so the renderer (which uses ResizeObserver) gets
-  // proper dimensions inside the slide cell.
+  // Use flex column so the diagram's inner `flex:1` wrapper stretches.
   return (
-    <div style={{ width:'100%', height:'100%', minHeight:'5em', position:'relative', overflow:'hidden' }}>
+    <div style={{
+      width: '100%', height: '100%', minHeight: '5em',
+      position: 'relative', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
+    }}>
       <Comp {...props}/>
     </div>
   );

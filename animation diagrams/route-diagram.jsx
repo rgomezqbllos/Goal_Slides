@@ -261,22 +261,27 @@ function RouteDiagram({
   const [activeStop, setActiveStop] = useState(-1);
   const [running, setRunning] = useState(true);
 
-  // Resize observer
+  // Resize observer — accept any container size; keep a tiny floor so the
+  // path math stays stable when the cell collapses to almost-zero.
   useEffect(() => {
     if (!wrapRef.current) return;
     const ro = new ResizeObserver(entries => {
       for (const e of entries) {
         const { width, height } = e.contentRect;
-        setSize({ w: Math.max(360, width), h: Math.max(420, height) });
+        setSize({ w: Math.max(120, width), h: Math.max(120, height) });
       }
     });
     ro.observe(wrapRef.current);
     return () => ro.disconnect();
   }, []);
 
-  // Build path — asymmetric padding so right-side labels don't clip
-  const padX = showLabels ? 160 : 70;
-  const padY = 70;
+  // Proportional padding so the diagram still renders inside small slide cells.
+  // Labels auto-hide below ~360px wide to avoid clipping.
+  const showLabelsResolved = showLabels && size.w >= 360;
+  const padX = showLabelsResolved
+    ? Math.min(160, Math.max(50, size.w * 0.25))
+    : Math.min(70,  Math.max(18, size.w * 0.10));
+  const padY = Math.min(70, Math.max(18, size.h * 0.10));
   const { d, stopsXY } = useMemo(
     () => buildRoute({ stops, width: size.w, height: size.h, padX, padY, curvature }),
     [stops, size.w, size.h, curvature]
@@ -407,7 +412,7 @@ function RouteDiagram({
   const busColor = colorMode === 'multi' ? PALETTE.accent : PALETTE.accent;
 
   return (
-    <div ref={wrapRef} style={{ position:'relative', flex:1, minHeight:600 }}>
+    <div ref={wrapRef} style={{ position:'relative', flex:1, width:'100%', height:'100%', minHeight:80 }}>
       {/* Progress chip */}
       {showProgress && (
         <div style={{
@@ -520,7 +525,7 @@ function RouteDiagram({
             active={isActive(i)}
             completed={completedStop(i)}
             color={stopColor(i)}
-            showLabel={showLabels}
+            showLabel={showLabelsResolved}
             side={i % 2 === 0 ? 'left' : 'right'}
           />
         ))}
