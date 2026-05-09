@@ -1361,9 +1361,12 @@ function EditorShell({ project, setProject, onPresent, onExportHTML }) {
   const [picker, setPicker] = useS(null);
   const [logoModal, setLogoModal] = useS(false);
   const [zoom, setZoom] = useS(0.38);
+  const [zoomCollapsed, setZoomCollapsed] = useS(false);
   const [savedFlash, setSavedFlash] = useS(false);
   const [spaceDown, setSpaceDown] = useS(false);
   const [isPanning, setIsPanning] = useS(false);
+  const [currentFileName, setCurrentFileName] = useS(null);
+  const fileHandleRef = useR(null);
   const didPan = useR(false);
   const canvasRef = useR(null);
   const containerRef = useR(null);
@@ -1408,11 +1411,19 @@ function EditorShell({ project, setProject, onPresent, onExportHTML }) {
     setProject(history.current[histIdx.current]);
   };
 
+  // Ref to always call the latest save handlers (avoids stale closures in keydown).
+  const saveHandlersRef = useR({ save: () => {}, saveAs: () => {} });
+
   useE(() => {
     const onDown = (e) => {
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
       if (mod && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
+      if (mod && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        if (e.shiftKey) saveHandlersRef.current.saveAs();
+        else saveHandlersRef.current.save();
+      }
       if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
         e.preventDefault();
         setSpaceDown(true);
@@ -1530,11 +1541,66 @@ function EditorShell({ project, setProject, onPresent, onExportHTML }) {
   const CANVAS_W = Math.round(1920 * zoom);
   const CANVAS_H = Math.round(1080 * zoom);
 
-  const handleSave = () => {
-    window.saveProject(project);
-    setSavedFlash(true);
-    setTimeout(() => setSavedFlash(false), 1800);
+  const defaultFileName = () =>
+    `${(project.meta.clientName || 'presentation').replace(/\s+/g, '-').toLowerCase() || 'presentation'}-slides.json`;
+
+  const writeProjectToDisk = async (forceNewFile) => {
+    const json = JSON.stringify(project, null, 2);
+    // Path A — File System Access API (Chrome / Edge / Brave)
+    if (window.showSaveFilePicker) {
+      try {
+        let handle = forceNewFile ? null : fileHandleRef.current;
+        if (!handle) {
+          handle = await window.showSaveFilePicker({
+            suggestedName: currentFileName || defaultFileName(),
+            types: [{ description: 'Goal Slides JSON', accept: { 'application/json': ['.json'] } }],
+          });
+          fileHandleRef.current = handle;
+          setCurrentFileName(handle.name);
+        }
+        const writable = await handle.createWritable();
+        await writable.write(json);
+        await writable.close();
+        return true;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return false;
+        // Fall through to download fallback
+        console.warn('FSA save failed, falling back to download', err);
+      }
+    }
+    // Path B — fallback download (Safari / Firefox / iframes without permission)
+    const name = currentFileName || defaultFileName();
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    if (!currentFileName) setCurrentFileName(name);
+    return true;
   };
+
+  const handleSave = async () => {
+    // Always persist to localStorage (instant, offline-safe)
+    window.saveProject(project);
+    const ok = await writeProjectToDisk(false);
+    if (ok) {
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 1800);
+    }
+  };
+
+  const handleSaveAs = async () => {
+    window.saveProject(project);
+    const ok = await writeProjectToDisk(true);
+    if (ok) {
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 1800);
+    }
+  };
+
+  // Keep keyboard shortcuts in sync with the latest project state.
+  saveHandlersRef.current = { save: handleSave, saveAs: handleSaveAs };
 
   const accent = project.meta.accent || '#42dcc6';
 
@@ -1571,10 +1637,20 @@ function EditorShell({ project, setProject, onPresent, onExportHTML }) {
         <Btn onClick={() => exportAsHTML(project)}><EIcon name="html" size={13} />Export HTML</Btn>
         <Btn onClick={onPresent} active><EIcon name="play_arrow" size={16} />Present</Btn>
         <div style={{ width: 1, height: 24, background: '#1c2341' }} />
-        <Btn onClick={handleSave} style={{ borderColor: savedFlash ? accent : '#464a6c', background: savedFlash ? 'rgba(66,220,198,0.15)' : 'transparent', color: savedFlash ? accent : '#bbcac5', transition: 'all 0.3s' }}>
+        <Btn onClick={handleSave}
+          title={currentFileName ? `Save to ${currentFileName} (⌘S)` : 'Save project to file (⌘S)'}
+          style={{ borderColor: savedFlash ? accent : '#464a6c', background: savedFlash ? 'rgba(66,220,198,0.15)' : 'transparent', color: savedFlash ? accent : '#bbcac5', transition: 'all 0.3s' }}>
           <EIcon name={savedFlash ? 'check' : 'save'} size={15} />
           {savedFlash ? 'Saved!' : 'Save'}
         </Btn>
+        <Btn small onClick={handleSaveAs} title="Save project as a new file (⇧⌘S)" style={{ padding: '6px 9px' }}>
+          <EIcon name="save_as" size={14} />
+        </Btn>
+        {currentFileName && (
+          <span title={currentFileName} style={{ fontSize: 9, color: '#859490', fontWeight: 600, letterSpacing: '0.04em', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {currentFileName}
+          </span>
+        )}
       </div>
 
       {/* ── MAIN ── */}
@@ -1692,42 +1768,66 @@ function EditorShell({ project, setProject, onPresent, onExportHTML }) {
             );
           })()}
 
-          {/* Zoom toolbar — continuous slider + clear Fit */}
-          <div onClick={e => e.stopPropagation()} style={{
-            position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)',
-            background: '#0a0f26', border: '1px solid #1c2341',
-            borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.5)', zIndex: 50, minWidth: 460,
-          }}>
-            <button onClick={() => setZoom(z => Math.max(0.1, +(z - 0.02).toFixed(2)))}
-              title="Zoom out"
-              style={{ background: '#0d1228', border: '1px solid #1c2341', borderRadius: 4, color: '#bbcac5', cursor: 'pointer', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>remove</span>
+          {/* Zoom toolbar — collapsible at the bottom */}
+          {zoomCollapsed ? (
+            <button onClick={(e) => { e.stopPropagation(); setZoomCollapsed(false); }}
+              title="Show zoom controls"
+              style={{
+                position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)',
+                background: '#0a0f26', border: '1px solid #1c2341', borderRadius: 6,
+                display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
+                color: '#bbcac5', fontFamily: 'Space Grotesk', fontSize: 10, fontWeight: 700,
+                letterSpacing: '0.06em', cursor: 'pointer', zIndex: 50,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+              }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 14, fontVariationSettings: "'FILL' 0,'wght' 300", color: accent }}>expand_less</span>
+              <span style={{ color: accent }}>{Math.round(zoom * 100)}%</span>
+              <span style={{ color: '#464a6c' }}>·</span>
+              <span>{selSlide + 1}/{project.slides.length}</span>
             </button>
-            <input type="range" min={10} max={200} step={1} value={Math.round(zoom * 100)}
-              onChange={e => setZoom(parseInt(e.target.value) / 100)}
-              style={{ flex: 1, accentColor: accent, cursor: 'pointer', minWidth: 200 }}/>
-            <button onClick={() => setZoom(z => Math.min(2, +(z + 0.02).toFixed(2)))}
-              title="Zoom in"
-              style={{ background: '#0d1228', border: '1px solid #1c2341', borderRadius: 4, color: '#bbcac5', cursor: 'pointer', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>add</span>
-            </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <input type="number" min={10} max={200} step={1} value={Math.round(zoom * 100)}
-                onChange={e => { const v = parseInt(e.target.value); if (v >= 10 && v <= 200) setZoom(v / 100); }}
-                style={{ width: 46, background: '#111633', border: '1px solid #2a3060', color: '#dde4e1', fontFamily: 'Space Grotesk', fontSize: 11, fontWeight: 700, textAlign: 'center', padding: '4px', borderRadius: 3, outline: 'none' }}/>
-              <span style={{ fontSize: 10, color: '#464a6c', fontWeight: 700 }}>%</span>
+          ) : (
+            <div onClick={e => e.stopPropagation()} style={{
+              position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)',
+              background: '#0a0f26', border: '1px solid #1c2341',
+              borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.5)', zIndex: 50, minWidth: 460,
+            }}>
+              <button onClick={() => setZoom(z => Math.max(0.1, +(z - 0.02).toFixed(2)))}
+                title="Zoom out"
+                style={{ background: '#0d1228', border: '1px solid #1c2341', borderRadius: 4, color: '#bbcac5', cursor: 'pointer', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>remove</span>
+              </button>
+              <input type="range" min={10} max={200} step={1} value={Math.round(zoom * 100)}
+                onChange={e => setZoom(parseInt(e.target.value) / 100)}
+                style={{ flex: 1, accentColor: accent, cursor: 'pointer', minWidth: 200 }}/>
+              <button onClick={() => setZoom(z => Math.min(2, +(z + 0.02).toFixed(2)))}
+                title="Zoom in"
+                style={{ background: '#0d1228', border: '1px solid #1c2341', borderRadius: 4, color: '#bbcac5', cursor: 'pointer', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>add</span>
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <input type="number" min={10} max={200} step={1} value={Math.round(zoom * 100)}
+                  onChange={e => { const v = parseInt(e.target.value); if (v >= 10 && v <= 200) setZoom(v / 100); }}
+                  style={{ width: 46, background: '#111633', border: '1px solid #2a3060', color: '#dde4e1', fontFamily: 'Space Grotesk', fontSize: 11, fontWeight: 700, textAlign: 'center', padding: '4px', borderRadius: 3, outline: 'none' }}/>
+                <span style={{ fontSize: 10, color: '#464a6c', fontWeight: 700 }}>%</span>
+              </div>
+              <div style={{ width: 1, height: 20, background: '#1c2341' }}/>
+              <button onClick={fitZoom}
+                title="Fit slide to current viewport"
+                style={{ background: 'rgba(66,220,198,0.10)', border: `1px solid ${accent}`, borderRadius: 4, color: accent, cursor: 'pointer', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontFamily: 'Space Grotesk', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>fit_screen</span>Fit
+              </button>
+              <span style={{ fontSize: 9, color: '#464a6c', fontWeight: 700, letterSpacing: '0.06em' }}>
+                {selSlide + 1} / {project.slides.length}
+              </span>
+              <div style={{ width: 1, height: 20, background: '#1c2341' }}/>
+              <button onClick={() => setZoomCollapsed(true)}
+                title="Collapse zoom toolbar"
+                style={{ background: 'transparent', border: 'none', color: '#859490', cursor: 'pointer', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>expand_more</span>
+              </button>
             </div>
-            <div style={{ width: 1, height: 20, background: '#1c2341' }}/>
-            <button onClick={fitZoom}
-              title="Fit slide to current viewport"
-              style={{ background: 'rgba(66,220,198,0.10)', border: `1px solid ${accent}`, borderRadius: 4, color: accent, cursor: 'pointer', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontFamily: 'Space Grotesk', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>fit_screen</span>Fit
-            </button>
-            <span style={{ fontSize: 9, color: '#464a6c', fontWeight: 700, letterSpacing: '0.06em' }}>
-              {selSlide + 1} / {project.slides.length}
-            </span>
-          </div>
+          )}
         </div>
 
         {/* ── RIGHT: Side Block Toolbar (vertical icon column) ── */}
