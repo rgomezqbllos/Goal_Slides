@@ -47,6 +47,7 @@ function PresenterMode({ project, onExit }) {
           transformOrigin: 'center center',
         }}>
           <SlideView
+            key={`pres-${idx}`}
             slide={slideWithNum}
             lang={lang}
             accent={accent}
@@ -54,6 +55,7 @@ function PresenterMode({ project, onExit }) {
             clientName={meta.clientName}
             mode="present"
             onNavigate={go}
+            project={project}
           />
         </div>
       </div>
