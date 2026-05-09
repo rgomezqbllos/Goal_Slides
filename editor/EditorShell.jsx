@@ -753,6 +753,13 @@ function PropertiesPanel({ project, slideIdx, selPath, onUpdateCell, onUpdateSli
             </PropSection>
           )}
 
+          {/* Animation — leaf cells only */}
+          {cell && !isContainer && (
+            <AnimationPanel cell={cell} accent={accent}
+              hasItems={['checklist','timeline','metrics','table'].includes(cell.block)}
+              onUpdate={(animation) => onUpdateCell(slideIdx, selPath, { ...cell, animation })}/>
+          )}
+
           {!cell && (
             <div style={{ padding: '20px 16px', color: '#464a6c', fontSize: 11 }}>Click a cell or select it from the tree.</div>
           )}
@@ -762,42 +769,146 @@ function PropertiesPanel({ project, slideIdx, selPath, onUpdateCell, onUpdateSli
   );
 }
 
-// ─── Floating Block Menu (context-aware, path-based) ─────────────────────────
-function FloatingBlockMenu({ slide, slideIdx, selPath, onReplaceSlide, onSelectPath, onScaleChange, visible }) {
-  const [pos, setPos] = useS({ x: 20, y: 80 });
-  const [collapsed, setCollapsed] = useS(false);
-  const dragging = useR(false);
-  const dragOffset = useR({ x: 0, y: 0 });
+// ─── Animation Panel ─────────────────────────────────────────────────────────
+function AnimationPanel({ cell, accent, hasItems, onUpdate }) {
+  const a = cell.animation || {};
+  const set = (patch) => onUpdate({ ...a, ...patch });
+  const blockBadge = (a.type && a.type !== 'none') ? (BLOCK_ANIMATIONS.find(x => x.id === a.type)?.label) : 'None';
 
-  const onMouseDown = (e) => {
-    if (e.target.closest('button')) return;
-    dragging.current = true;
-    dragOffset.current = { x: e.clientX - pos.x, y: e.clientY - pos.y };
-    e.preventDefault();
-  };
-  useE(() => {
-    const onMove = (e) => { if (!dragging.current) return; setPos({ x: e.clientX - dragOffset.current.x, y: e.clientY - dragOffset.current.y }); };
-    const onUp = () => { dragging.current = false; };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-  }, []);
+  return (
+    <PropSection title="Animation" icon="animation" defaultOpen={false} badge={blockBadge}>
+      <Label style={{ marginTop: 4 }}>Block animation</Label>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4 }}>
+        {BLOCK_ANIMATIONS.map(opt => {
+          const active = (a.type || 'none') === opt.id;
+          return (
+            <button key={opt.id} onClick={() => set({ type: opt.id })}
+              title={opt.label}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                padding: '6px 4px',
+                background: active ? 'rgba(66,220,198,0.12)' : '#0d1228',
+                border: `1px solid ${active ? accent : '#1c2341'}`,
+                color: active ? accent : '#bbcac5',
+                fontFamily: 'Space Grotesk', fontSize: 8, fontWeight: 700,
+                letterSpacing: '0.04em', cursor: 'pointer',
+              }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 14, fontVariationSettings: "'FILL' 0,'wght' 300" }}>{opt.icon}</span>
+              <span>{opt.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
-  if (!visible || !selPath || selPath.length === 0) return null;
+      {a.type && a.type !== 'none' && <>
+        <Divider />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <div>
+            <Label>Order</Label>
+            <Input value={a.order ?? ''} onChange={v => set({ order: v === '' ? undefined : Math.max(0, parseInt(v) || 0) })} placeholder="auto"/>
+          </div>
+          <div>
+            <Label>Delay (ms)</Label>
+            <Input value={a.delay ?? ''} onChange={v => set({ delay: v === '' ? undefined : Math.max(0, parseInt(v) || 0) })} placeholder="auto"/>
+          </div>
+          <div>
+            <Label>Duration</Label>
+            <Input value={a.duration ?? 750} onChange={v => set({ duration: Math.max(50, parseInt(v) || 750) })} placeholder="750"/>
+          </div>
+          <div>
+            <Label>Auto step (ms)</Label>
+            <Input value={a.baseDelay ?? 140} onChange={v => set({ baseDelay: Math.max(0, parseInt(v) || 0) })} placeholder="140"/>
+          </div>
+        </div>
+      </>}
 
-  // Resolve context from path
-  const [curRi, curCi] = selPath[selPath.length - 1];
-  const parentContainerPath = selPath.slice(0, -1); // [] = slide level
-  const parentRows = getContainerRows(slide, parentContainerPath);
+      {hasItems && <>
+        <Divider />
+        <Label>Items animation</Label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4 }}>
+          {ITEM_ANIMATIONS.map(opt => {
+            const active = (a.itemType || 'none') === opt.id;
+            return (
+              <button key={opt.id} onClick={() => set({ itemType: opt.id })}
+                title={opt.label}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                  padding: '6px 4px',
+                  background: active ? 'rgba(66,220,198,0.12)' : '#0d1228',
+                  border: `1px solid ${active ? accent : '#1c2341'}`,
+                  color: active ? accent : '#bbcac5',
+                  fontFamily: 'Space Grotesk', fontSize: 8, fontWeight: 700,
+                  letterSpacing: '0.04em', cursor: 'pointer',
+                }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 14, fontVariationSettings: "'FILL' 0,'wght' 300" }}>{opt.icon}</span>
+                <span>{opt.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {a.itemType && a.itemType !== 'none' && <>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+            <div>
+              <Label>Stagger (ms)</Label>
+              <Input value={a.itemStagger ?? 90} onChange={v => set({ itemStagger: Math.max(0, parseInt(v) || 0) })} placeholder="90"/>
+            </div>
+            <div>
+              <Label>Item duration</Label>
+              <Input value={a.itemDuration ?? 600} onChange={v => set({ itemDuration: Math.max(50, parseInt(v) || 600) })} placeholder="600"/>
+            </div>
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 8 }}>
+            <input type="checkbox" checked={!!a.itemAfterBlock}
+              onChange={e => set({ itemAfterBlock: e.target.checked })}
+              style={{ accentColor: accent, width: 12, height: 12 }}/>
+            <span style={{ fontSize: 10, color: '#bbcac5' }}>Start items after block animation</span>
+          </label>
+        </>}
+      </>}
+
+      {((a.type && a.type !== 'none') || (a.itemType && a.itemType !== 'none')) && (
+        <button onClick={() => onUpdate(null)}
+          style={{
+            marginTop: 10, width: '100%',
+            background: 'rgba(255,119,117,0.08)', border: '1px solid #ff7775',
+            color: '#ff7775', cursor: 'pointer', padding: '6px',
+            fontFamily: 'Space Grotesk', fontSize: 9, fontWeight: 700,
+            letterSpacing: '0.08em', textTransform: 'uppercase',
+          }}>
+          Clear animations
+        </button>
+      )}
+      <p style={{ fontSize: 9, color: '#3b426b', marginTop: 8, lineHeight: 1.5 }}>
+        Tip: leave Order empty for auto sequence (top-down).
+      </p>
+    </PropSection>
+  );
+}
+
+// ─── Side Block Toolbar (vertical, integrated, no overlap) ───────────────────
+// Compact icon-based vertical column placed BETWEEN the canvas and the
+// properties panel. Always visible — when no cell is selected, it shows a
+// hint and slide-level shortcuts. When a cell is selected, it exposes the
+// row/column/split/scale controls inline (no collapse needed).
+function SideBlockToolbar({ slide, slideIdx, selPath, onReplaceSlide, onSelectPath, onScaleChange }) {
+  if (!slide) return null;
+
+  const hasSel = !!(selPath && selPath.length > 0);
+  const cell = hasSel ? getCellAtPath(slide, selPath) : null;
+  const validSel = hasSel && !!cell;
+
+  // Resolve context from path (safe defaults when nothing is selected)
+  const [curRi, curCi] = validSel ? selPath[selPath.length - 1] : [0, 0];
+  const parentContainerPath = validSel ? selPath.slice(0, -1) : [];
+  const parentRows = validSel ? getContainerRows(slide, parentContainerPath) : [];
   const curRow = parentRows[curRi];
-  const cell = getCellAtPath(slide, selPath);
-  if (!cell) return null;
 
-  const isContainer = !!cell.rows;
-  const isLeaf = !isContainer;
+  const isContainer = validSel && !!cell.rows;
+  const isLeaf = validSel && !isContainer;
 
   // Breadcrumb label
-  const levelLabel = selPath.length === 1
+  const levelLabel = !validSel ? '' : selPath.length === 1
     ? `slide`
     : selPath.slice(0, -1).map(([r, c]) => `R${r+1}·C${c+1}`).join(' › ');
 
@@ -905,168 +1016,129 @@ function FloatingBlockMenu({ slide, slideIdx, selPath, onReplaceSlide, onSelectP
     onSelectPath(null);
   };
 
-  // ── Styles ──
-  const btnS = (active, danger) => ({
-    background: active ? 'rgba(66,220,198,0.18)' : danger ? 'rgba(255,119,117,0.12)' : '#111633',
-    border: `1.5px solid ${active ? '#42dcc6' : danger ? '#ff7775' : '#2a3060'}`,
-    color: active ? '#42dcc6' : danger ? '#ff7775' : '#bbcac5',
-    cursor: 'pointer', padding: '7px 10px', fontSize: 13,
-    fontFamily: 'Space Grotesk', fontWeight: 600,
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-    transition: 'all 0.12s', whiteSpace: 'nowrap', borderRadius: 4,
-  });
-  const sectionLabel = (txt) => (
-    <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#464a6c', padding: '6px 2px 2px' }}>{txt}</div>
+  // ── Compact icon button (32×32 / 28×28 for tighter rows) ──
+  const IconBtn = ({ icon, title, onClick, active, danger, disabled, size = 32, label, accent: ac }) => (
+    <button onClick={onClick} title={title} disabled={disabled} style={{
+      width: size, height: size, padding: 0,
+      background: active ? 'rgba(66,220,198,0.16)' : danger ? 'rgba(255,119,117,0.10)' : '#0d1228',
+      border: `1px solid ${active ? '#42dcc6' : danger ? '#ff7775' : '#1c2341'}`,
+      color: disabled ? '#2a3060' : active ? '#42dcc6' : danger ? '#ff7775' : ac || '#bbcac5',
+      cursor: disabled ? 'default' : 'pointer', borderRadius: 4,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: 'Space Grotesk', fontSize: 9, fontWeight: 700,
+      transition: 'all 0.12s', flexShrink: 0,
+    }}>
+      {label
+        ? label
+        : <span className="material-symbols-outlined" style={{ fontSize: size === 28 ? 16 : 18, fontVariationSettings: "'FILL' 0,'wght' 300" }}>{icon}</span>}
+    </button>
+  );
+
+  const SectionTitle = ({ children }) => (
+    <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#3b426b', textAlign: 'center', padding: '6px 0 2px', borderTop: '1px solid #11162d' }}>
+      {children}
+    </div>
   );
 
   return (
-    <div onMouseDown={onMouseDown} style={{
-      position: 'fixed', left: pos.x, top: pos.y, zIndex: 9500,
-      background: '#0a0f26', border: '1.5px solid #42dcc6',
-      boxShadow: '0 8px 32px rgba(0,0,0,0.7), 0 0 0 1px rgba(66,220,198,0.15)',
-      borderRadius: 8, overflow: 'hidden', userSelect: 'none', minWidth: 210,
+    <div style={{
+      width: 52, flexShrink: 0,
+      borderLeft: '1px solid #1c2341', borderRight: '1px solid #1c2341',
+      background: '#06091a', display: 'flex', flexDirection: 'column',
+      overflow: 'hidden', userSelect: 'none',
     }}>
-      {/* Drag handle + breadcrumb */}
-      <div style={{ background: 'rgba(66,220,198,0.08)', padding: '7px 12px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'grab', borderBottom: collapsed ? 'none' : '1px solid #1c2341' }}>
-        <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#42dcc6', fontVariationSettings: "'FILL' 0,'wght' 300" }}>drag_indicator</span>
-        <div style={{ flex: 1 }}>
-          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#42dcc6' }}>
-            {isContainer ? 'Container' : 'Block'} Controls
-          </span>
-          {!collapsed && <div style={{ fontSize: 8, color: '#464a6c', marginTop: 1 }}>
-            {levelLabel} › R{curRi+1}·C{curCi+1}
-          </div>}
-        </div>
-        {/* Level badge */}
-        {!collapsed && <div style={{ fontSize: 8, fontWeight: 700, background: 'rgba(66,220,198,0.12)', color: '#42dcc6', padding: '2px 6px', borderRadius: 3, letterSpacing: '0.08em' }}>
-          L{selPath.length}
-        </div>}
-        {/* Collapse toggle */}
-        <button
-          onClick={e => { e.stopPropagation(); setCollapsed(c => !c); }}
-          title={collapsed ? 'Expand' : 'Collapse'}
-          style={{ background: 'none', border: 'none', color: '#42dcc6', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>
-            {collapsed ? 'expand_more' : 'expand_less'}
-          </span>
-        </button>
+      {/* Header badge */}
+      <div title={validSel ? `${isContainer ? 'Container' : 'Block'} · ${levelLabel} › R${curRi+1}·C${curCi+1}` : 'Select a cell'}
+        style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, borderBottom: '1px solid #11162d' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: 18, color: validSel ? '#42dcc6' : '#3b426b', fontVariationSettings: "'FILL' 0,'wght' 300" }}>
+          {validSel ? (isContainer ? 'grid_view' : 'widgets') : 'crop_free'}
+        </span>
+        <span style={{ fontSize: 8, fontWeight: 700, color: validSel ? '#42dcc6' : '#3b426b', letterSpacing: '0.1em' }}>
+          {validSel ? `L${selPath.length}` : '—'}
+        </span>
       </div>
 
-      {!collapsed && <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '70vh', overflow: 'auto' }}>
+      {/* Empty state */}
+      {!validSel && (
+        <div style={{ padding: '14px 6px', textAlign: 'center', color: '#3b426b', fontSize: 8, lineHeight: 1.5, letterSpacing: '0.06em' }}>
+          Select a cell on the slide to edit its layout.
+        </div>
+      )}
 
-        {/* ── SPLIT (leaf only) ── */}
-        {isLeaf && <>
-          {sectionLabel('Split this cell')}
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button style={{ ...btnS(true, false), flex: 1, fontSize: 11 }} onClick={() => splitIntoCols(2)} title="Split into 2 columns">
-              <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>add_column_right</span>
-              2 cols
-            </button>
-            <button style={{ ...btnS(true, false), flex: 1, fontSize: 11 }} onClick={() => splitIntoRows(2)} title="Split into 2 rows">
-              <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>add_row_below</span>
-              2 rows
-            </button>
-          </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button style={{ ...btnS(false, false), flex: 1, fontSize: 11 }} onClick={() => splitIntoCols(3)} title="Split into 3 columns">
-              <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>view_column</span>
-              3 cols
-            </button>
-            <button style={{ ...btnS(false, false), flex: 1, fontSize: 11 }} onClick={() => splitIntoRows(3)} title="Split into 3 rows">
-              <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>table_rows</span>
-              3 rows
-            </button>
-          </div>
-        </>}
+      {/* Tools — only when selected */}
+      {validSel && (
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
 
-        {/* ── CONTAINER INSIDE (container only) ── */}
-        {isContainer && <>
-          {sectionLabel('Add inside container')}
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button style={{ ...btnS(true, false), flex: 1, fontSize: 11 }} onClick={addRowInside} title="Add row inside">
-              <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>add_row_below</span>
-              Add row
-            </button>
-            <button style={{ ...btnS(false, false), flex: 1, fontSize: 11 }} onClick={addColInside} title="Add col to last row">
-              <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>add_column_right</span>
-              Add col
-            </button>
-          </div>
-          <button style={{ ...btnS(false, true), width: '100%', fontSize: 11 }} onClick={flattenContainer} title="Remove nesting, replace with empty">
-            <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>layers_clear</span>
-            Flatten (remove nesting)
-          </button>
-        </>}
+          {/* SPLIT — leaf only */}
+          {isLeaf && <>
+            <SectionTitle>Split</SectionTitle>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, padding: '0 6px', width: '100%' }}>
+              <IconBtn icon="splitscreen_vertical_add" title="Split into 2 columns" onClick={() => splitIntoCols(2)} size={28}/>
+              <IconBtn icon="splitscreen_add" title="Split into 2 rows" onClick={() => splitIntoRows(2)} size={28}/>
+              <IconBtn label="3⫶" title="Split into 3 columns" onClick={() => splitIntoCols(3)} size={28}/>
+              <IconBtn label="3≡" title="Split into 3 rows" onClick={() => splitIntoRows(3)} size={28}/>
+            </div>
+          </>}
 
-        {/* ── ROW (in parent container) ── */}
-        {sectionLabel(`Row in ${selPath.length === 1 ? 'slide' : 'parent'}`)}
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button style={{ ...btnS(false, false), padding: '7px' }} onClick={() => moveRow(-1)} disabled={curRi === 0} title="Move row up">
-            <span className="material-symbols-outlined" style={{ fontSize: 17, fontVariationSettings: "'FILL' 0,'wght' 300" }}>arrow_upward</span>
-          </button>
-          <button style={{ ...btnS(false, false), padding: '7px' }} onClick={() => moveRow(1)} disabled={curRi === parentRows.length - 1} title="Move row down">
-            <span className="material-symbols-outlined" style={{ fontSize: 17, fontVariationSettings: "'FILL' 0,'wght' 300" }}>arrow_downward</span>
-          </button>
-          <button style={{ ...btnS(true, false), flex: 1, fontSize: 11 }} onClick={addRowBelow} title="Add row below">
-            <span className="material-symbols-outlined" style={{ fontSize: 17, fontVariationSettings: "'FILL' 0,'wght' 300" }}>add_row_below</span>
-            Add row
-          </button>
+          {/* CONTAINER */}
+          {isContainer && <>
+            <SectionTitle>Inside</SectionTitle>
+            <IconBtn icon="add_row_below" title="Add row inside container" onClick={addRowInside} active size={36}/>
+            <IconBtn icon="add_column_right" title="Add column to last row" onClick={addColInside} size={36}/>
+            <IconBtn icon="layers_clear" title="Flatten container" onClick={flattenContainer} danger size={36}/>
+          </>}
+
+          {/* ROW */}
+          <SectionTitle>Row</SectionTitle>
+          <IconBtn icon="arrow_upward"   title="Move row up"   onClick={() => moveRow(-1)} disabled={curRi === 0}/>
+          <IconBtn icon="arrow_downward" title="Move row down" onClick={() => moveRow(1)}  disabled={curRi === parentRows.length - 1}/>
+          <IconBtn icon="add_row_below"  title="Add row below" onClick={addRowBelow} active/>
           {parentRows.length > 1 && (
-            <button style={{ ...btnS(false, true), padding: '7px' }} onClick={removeRow} title="Remove this row">
-              <span className="material-symbols-outlined" style={{ fontSize: 17, fontVariationSettings: "'FILL' 0,'wght' 300" }}>delete</span>
-            </button>
+            <IconBtn icon="delete" title="Remove this row" onClick={removeRow} danger/>
           )}
-        </div>
 
-        {/* ── COLUMN (in current row) ── */}
-        {sectionLabel('Column in row')}
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button style={{ ...btnS(true, false), flex: 1, fontSize: 11 }} onClick={addColRight} title="Add column right">
-            <span className="material-symbols-outlined" style={{ fontSize: 17, fontVariationSettings: "'FILL' 0,'wght' 300" }}>add_column_right</span>
-            Add col
-          </button>
+          {/* COLUMN */}
+          <SectionTitle>Col</SectionTitle>
+          <IconBtn icon="add_column_right" title="Add column right" onClick={addColRight} active/>
           {curRow && curRow.cells.length > 1 && (
-            <button style={{ ...btnS(false, true), fontSize: 11, flex: 1 }} onClick={removeCol} title="Remove this column">
-              <span className="material-symbols-outlined" style={{ fontSize: 17, fontVariationSettings: "'FILL' 0,'wght' 300" }}>delete</span>
-              Del col
-            </button>
+            <IconBtn icon="variable_remove" title="Remove this column" onClick={removeCol} danger/>
           )}
-        </div>
 
-        {/* ── LAYOUT PRESETS ── */}
-        {sectionLabel('Row layout')}
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          {/* LAYOUT PRESETS */}
+          <SectionTitle>Layout</SectionTitle>
           {COL_PRESETS.map(p => {
             const active = curRow && JSON.stringify(curRow.cols) === JSON.stringify(p.cols);
             return (
-              <button key={p.label} onClick={() => setColLayout(p.cols)} style={{
-                ...btnS(active, false),
-                padding: '6px 10px', fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
-              }}>{p.label}</button>
+              <IconBtn key={p.label} label={p.label} title={`Layout ${p.label}`} onClick={() => setColLayout(p.cols)} active={active} size={28}/>
             );
           })}
-        </div>
 
-        {/* ── CONTENT SCALE ── */}
-        {isLeaf && <>
-          {sectionLabel('Content scale')}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
-            <button style={{ ...btnS(false,false), padding:'5px 7px', fontSize:14 }}
-              onClick={() => onScaleChange && onScaleChange(Math.max(0.5, +((cell.fontSize||1) - 0.1).toFixed(2)))}>−</button>
-            <input type="range" min={50} max={200} step={5}
-              value={Math.round((cell.fontSize||1)*100)}
-              onChange={e => onScaleChange && onScaleChange(parseInt(e.target.value)/100)}
-              style={{ flex:1, accentColor:'#42dcc6', cursor:'pointer' }}/>
-            <button style={{ ...btnS(false,false), padding:'5px 7px', fontSize:14 }}
-              onClick={() => onScaleChange && onScaleChange(Math.min(2, +((cell.fontSize||1) + 0.1).toFixed(2)))}>+</button>
-            <span style={{ fontSize:10, fontWeight:700, color:'#42dcc6', minWidth:34, textAlign:'right' }}>
-              {Math.round((cell.fontSize||1)*100)}%
-            </span>
-          </div>
-          <button style={{ ...btnS(false,false), fontSize:9, padding:'3px 8px', alignSelf:'flex-start' }}
-            onClick={() => onScaleChange && onScaleChange(1)}>Reset</button>
-        </>}
-      </div>}
+          {/* CONTENT SCALE — leaf only */}
+          {isLeaf && <>
+            <SectionTitle>Scale</SectionTitle>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '4px 4px', width: '100%' }}>
+              <IconBtn icon="add" title="Increase content scale" size={28}
+                onClick={() => onScaleChange && onScaleChange(Math.min(2, +((cell.fontSize||1) + 0.1).toFixed(2)))}/>
+              <input type="range" min={50} max={200} step={5} orient="vertical"
+                value={Math.round((cell.fontSize||1)*100)}
+                onChange={e => onScaleChange && onScaleChange(parseInt(e.target.value)/100)}
+                style={{
+                  WebkitAppearance:'slider-vertical', writingMode: 'bt-lr',
+                  width: 6, height: 90, accentColor: '#42dcc6', cursor: 'pointer',
+                }}/>
+              <IconBtn icon="remove" title="Decrease content scale" size={28}
+                onClick={() => onScaleChange && onScaleChange(Math.max(0.5, +((cell.fontSize||1) - 0.1).toFixed(2)))}/>
+              <span style={{ fontSize: 9, fontWeight: 700, color: '#42dcc6', textAlign: 'center' }}>
+                {Math.round((cell.fontSize||1)*100)}%
+              </span>
+              <button onClick={() => onScaleChange && onScaleChange(1)}
+                style={{ background: 'none', border: 'none', color: '#3b426b', cursor: 'pointer', fontSize: 8, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '2px' }}>
+                reset
+              </button>
+            </div>
+          </>}
+        </div>
+      )}
     </div>
   );
 }
@@ -1216,6 +1288,22 @@ function exportAsHTML(project) {
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: #000; overflow: hidden; font-family: 'Space Grotesk', sans-serif; }
 .material-symbols-outlined { font-family: 'Material Symbols Outlined'; font-weight: normal; font-style: normal; line-height: 1; letter-spacing: normal; text-transform: none; white-space: nowrap; direction: ltr; -webkit-font-smoothing: antialiased; }
+.gsa-anim { animation-fill-mode: backwards; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); will-change: transform, opacity, filter, clip-path; }
+@keyframes gsa-fade        { from { opacity: 0; } to { opacity: 1; } }
+@keyframes gsa-slide-up    { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes gsa-slide-down  { from { opacity: 0; transform: translateY(-24px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes gsa-slide-left  { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes gsa-slide-right { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes gsa-zoom-in     { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
+@keyframes gsa-zoom-out    { from { opacity: 0; transform: scale(1.18); } to { opacity: 1; transform: scale(1); } }
+@keyframes gsa-blur-in     { from { opacity: 0; filter: blur(14px); } to { opacity: 1; filter: blur(0); } }
+@keyframes gsa-glow-in     { 0% { opacity: 0; transform: scale(0.96); filter: brightness(2.4) drop-shadow(0 0 22px rgba(66,220,198,0.9)); } 60% { opacity: 1; transform: scale(1.01); filter: brightness(1.2) drop-shadow(0 0 8px rgba(66,220,198,0.5)); } 100% { opacity: 1; transform: scale(1); filter: brightness(1) drop-shadow(0 0 0 transparent); } }
+@keyframes gsa-reveal-x    { from { opacity: 0; clip-path: inset(0 100% 0 0); } to { opacity: 1; clip-path: inset(0 0 0 0); } }
+@keyframes gsa-reveal-y    { from { opacity: 0; clip-path: inset(0 0 100% 0); } to { opacity: 1; clip-path: inset(0 0 0 0); } }
+@keyframes gsa-flicker     { 0% { opacity: 0; } 8% { opacity: 0.7; } 14% { opacity: 0.15; } 24% { opacity: 0.95; } 32% { opacity: 0.4; } 42% { opacity: 1; } 52% { opacity: 0.6; } 60% { opacity: 1; } 100% { opacity: 1; } }
+@keyframes gsa-pop         { 0% { opacity: 0; transform: scale(0.55); } 60% { opacity: 1; transform: scale(1.07); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes gsa-bracket     { 0% { opacity: 0; transform: scale(1.18); letter-spacing: 0.4em; filter: blur(2px); } 100% { opacity: 1; transform: scale(1); letter-spacing: normal; filter: blur(0); } }
+@keyframes gsa-rise-fade   { from { opacity: 0; transform: translateY(10px) scale(0.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
 <\/style>
 </head>
 <body>
@@ -1239,7 +1327,7 @@ function PresenterMode({ project }) {
   const scale = Math.min(window.innerWidth/1920, window.innerHeight/1080);
   return React.createElement('div', { style: { position:'fixed', inset:0, background:'#000', display:'flex', alignItems:'center', justifyContent:'center' } },
     React.createElement('div', { style: { width:1920, height:1080, transform:'scale('+scale+')', transformOrigin:'center' } },
-      React.createElement(SlideView, { slide, lang:project.meta.lang||'en', accent:project.meta.accent||'#42dcc6', logoSrc:project.meta.logoSrc, clientName:project.meta.clientName, mode:'present', project })
+      React.createElement(SlideView, { key: 'pres-'+i, slide, lang:project.meta.lang||'en', accent:project.meta.accent||'#42dcc6', logoSrc:project.meta.logoSrc, clientName:project.meta.clientName, mode:'present', project })
     ),
     i > 0 && React.createElement('button', { onClick:()=>setI(n=>n-1), style:{ position:'fixed', left:20, top:'50%', transform:'translateY(-50%)', background:'rgba(0,0,0,0.5)', border:'1px solid #464a6c', color:'#bbcac5', cursor:'pointer', padding:'14px 10px' } }, React.createElement('span', { className:'material-symbols-outlined' }, 'arrow_back')),
     i < project.slides.length-1 && React.createElement('button', { onClick:()=>setI(n=>n+1), style:{ position:'fixed', right:20, top:'50%', transform:'translateY(-50%)', background:'rgba(0,0,0,0.5)', border:'1px solid #464a6c', color:'#bbcac5', cursor:'pointer', padding:'14px 10px' } }, React.createElement('span', { className:'material-symbols-outlined' }, 'arrow_forward')),
@@ -1604,44 +1692,60 @@ function EditorShell({ project, setProject, onPresent, onExportHTML }) {
             );
           })()}
 
-          {/* Zoom toolbar */}
+          {/* Zoom toolbar — continuous slider + clear Fit */}
           <div onClick={e => e.stopPropagation()} style={{
             position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)',
             background: '#0a0f26', border: '1px solid #1c2341',
-            borderRadius: 8, display: 'flex', alignItems: 'center', gap: 2, padding: '4px 6px',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.5)', zIndex: 50,
+            borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.5)', zIndex: 50, minWidth: 460,
           }}>
-            <button onClick={() => setZoom(z => Math.max(0.1, +(z - 0.05).toFixed(2)))}
-              style={{ background: 'none', border: 'none', color: '#bbcac5', cursor: 'pointer', padding: '5px 8px', display: 'flex', alignItems: 'center' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 18, fontVariationSettings: "'FILL' 0,'wght' 300" }}>remove</span>
+            <button onClick={() => setZoom(z => Math.max(0.1, +(z - 0.02).toFixed(2)))}
+              title="Zoom out"
+              style={{ background: '#0d1228', border: '1px solid #1c2341', borderRadius: 4, color: '#bbcac5', cursor: 'pointer', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>remove</span>
             </button>
-            {[0.25, 0.38, 0.5, 0.75, 1].map(z => (
-              <button key={z} onClick={() => setZoom(z)}
-                style={{ background: Math.abs(zoom - z) < 0.01 ? 'rgba(66,220,198,0.15)' : 'none', border: `1px solid ${Math.abs(zoom - z) < 0.01 ? accent : 'transparent'}`, color: Math.abs(zoom - z) < 0.01 ? accent : '#859490', cursor: 'pointer', padding: '4px 8px', fontSize: 10, fontFamily: 'Space Grotesk', fontWeight: 700, borderRadius: 4 }}>
-                {Math.round(z * 100)}%
-              </button>
-            ))}
-            <button onClick={() => setZoom(z => Math.min(1, +(z + 0.05).toFixed(2)))}
-              style={{ background: 'none', border: 'none', color: '#bbcac5', cursor: 'pointer', padding: '5px 8px', display: 'flex', alignItems: 'center' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 18, fontVariationSettings: "'FILL' 0,'wght' 300" }}>add</span>
+            <input type="range" min={10} max={200} step={1} value={Math.round(zoom * 100)}
+              onChange={e => setZoom(parseInt(e.target.value) / 100)}
+              style={{ flex: 1, accentColor: accent, cursor: 'pointer', minWidth: 200 }}/>
+            <button onClick={() => setZoom(z => Math.min(2, +(z + 0.02).toFixed(2)))}
+              title="Zoom in"
+              style={{ background: '#0d1228', border: '1px solid #1c2341', borderRadius: 4, color: '#bbcac5', cursor: 'pointer', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>add</span>
             </button>
-            <div style={{ width: 1, height: 20, background: '#1c2341', margin: '0 4px' }}/>
             <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <input type="number" min={10} max={100} step={5} value={Math.round(zoom * 100)}
-                onChange={e => { const v = parseInt(e.target.value); if (v >= 10 && v <= 100) setZoom(v / 100); }}
-                style={{ width: 42, background: '#111633', border: '1px solid #2a3060', color: '#dde4e1', fontFamily: 'Space Grotesk', fontSize: 11, fontWeight: 700, textAlign: 'center', padding: '4px', borderRadius: 3, outline: 'none' }}/>
+              <input type="number" min={10} max={200} step={1} value={Math.round(zoom * 100)}
+                onChange={e => { const v = parseInt(e.target.value); if (v >= 10 && v <= 200) setZoom(v / 100); }}
+                style={{ width: 46, background: '#111633', border: '1px solid #2a3060', color: '#dde4e1', fontFamily: 'Space Grotesk', fontSize: 11, fontWeight: 700, textAlign: 'center', padding: '4px', borderRadius: 3, outline: 'none' }}/>
               <span style={{ fontSize: 10, color: '#464a6c', fontWeight: 700 }}>%</span>
             </div>
-            <div style={{ width: 1, height: 20, background: '#1c2341', margin: '0 4px' }}/>
+            <div style={{ width: 1, height: 20, background: '#1c2341' }}/>
             <button onClick={fitZoom}
-              style={{ background: 'none', border: 'none', color: '#bbcac5', cursor: 'pointer', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontFamily: 'Space Grotesk', fontWeight: 600 }}>
+              title="Fit slide to current viewport"
+              style={{ background: 'rgba(66,220,198,0.10)', border: `1px solid ${accent}`, borderRadius: 4, color: accent, cursor: 'pointer', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontFamily: 'Space Grotesk', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
               <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>fit_screen</span>Fit
             </button>
-            <span style={{ fontSize: 9, color: '#464a6c', padding: '0 4px' }}>
-              Slide {selSlide + 1} / {project.slides.length}
+            <span style={{ fontSize: 9, color: '#464a6c', fontWeight: 700, letterSpacing: '0.06em' }}>
+              {selSlide + 1} / {project.slides.length}
             </span>
           </div>
         </div>
+
+        {/* ── RIGHT: Side Block Toolbar (vertical icon column) ── */}
+        <SideBlockToolbar
+          slide={slide}
+          slideIdx={selSlide}
+          selPath={selPath}
+          onReplaceSlide={replaceSlide}
+          onSelectPath={(p) => setSelPath(p)}
+          onScaleChange={(scale) => {
+            if (!selPath) return;
+            setProject(p => {
+              const sl = p.slides[selSlide];
+              if (!sl) return p;
+              return { ...p, slides: p.slides.map((s, i) => i !== selSlide ? s : setAtPath(s, selPath, c => ({ ...c, fontSize: scale }))) };
+            });
+          }}
+        />
 
         {/* ── RIGHT: Properties ── */}
         <div style={{ width: 240, borderLeft: '1px solid #1c2341', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0, background: '#00001b' }}>
@@ -1663,26 +1767,6 @@ function EditorShell({ project, setProject, onPresent, onExportHTML }) {
           </div>
         </div>
       </div>
-
-      {/* Floating block menu */}
-      {slide && selPath && (
-        <FloatingBlockMenu
-          slide={slide}
-          slideIdx={selSlide}
-          selPath={selPath}
-          onReplaceSlide={replaceSlide}
-          onSelectPath={(p) => setSelPath(p)}
-          onScaleChange={(scale) => {
-            if (!selPath) return;
-            setProject(p => {
-              const sl = p.slides[selSlide];
-              if (!sl) return p;
-              return { ...p, slides: p.slides.map((s, i) => i !== selSlide ? s : setAtPath(s, selPath, c => ({ ...c, fontSize: scale }))) };
-            });
-          }}
-          visible={!!selPath}
-        />
-      )}
 
       {/* Logo Guide Modal */}
       {logoModal && <LogoGuideModal onClose={() => setLogoModal(false)} onUpload={handleLogoUpload} />}

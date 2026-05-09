@@ -26,6 +26,43 @@
   input:focus, textarea:focus, select:focus { outline: none; border-color: #42dcc6 !important; }
   textarea { resize: vertical; }
   select { appearance: none; }
+
+  /* ── Block / item animations ────────────────────────────────────────────── */
+  .gsa-anim {
+    animation-fill-mode: backwards;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform, opacity, filter, clip-path;
+  }
+  @keyframes gsa-fade        { from { opacity: 0; }                                          to { opacity: 1; } }
+  @keyframes gsa-slide-up    { from { opacity: 0; transform: translateY(24px); }             to { opacity: 1; transform: translateY(0); } }
+  @keyframes gsa-slide-down  { from { opacity: 0; transform: translateY(-24px); }            to { opacity: 1; transform: translateY(0); } }
+  @keyframes gsa-slide-left  { from { opacity: 0; transform: translateX(28px); }             to { opacity: 1; transform: translateX(0); } }
+  @keyframes gsa-slide-right { from { opacity: 0; transform: translateX(-28px); }            to { opacity: 1; transform: translateX(0); } }
+  @keyframes gsa-zoom-in     { from { opacity: 0; transform: scale(0.85); }                  to { opacity: 1; transform: scale(1); } }
+  @keyframes gsa-zoom-out    { from { opacity: 0; transform: scale(1.18); }                  to { opacity: 1; transform: scale(1); } }
+  @keyframes gsa-blur-in     { from { opacity: 0; filter: blur(14px); }                       to { opacity: 1; filter: blur(0); } }
+  @keyframes gsa-glow-in     {
+    0%   { opacity: 0; transform: scale(0.96); filter: brightness(2.4) drop-shadow(0 0 22px rgba(66,220,198,0.9)); }
+    60%  { opacity: 1; transform: scale(1.01); filter: brightness(1.2) drop-shadow(0 0 8px rgba(66,220,198,0.5)); }
+    100% { opacity: 1; transform: scale(1);    filter: brightness(1)   drop-shadow(0 0 0 transparent); }
+  }
+  @keyframes gsa-reveal-x    { from { opacity: 0; clip-path: inset(0 100% 0 0); } to { opacity: 1; clip-path: inset(0 0 0 0); } }
+  @keyframes gsa-reveal-y    { from { opacity: 0; clip-path: inset(0 0 100% 0); } to { opacity: 1; clip-path: inset(0 0 0 0); } }
+  @keyframes gsa-flicker     {
+    0%   { opacity: 0; }   8%  { opacity: 0.7; } 14% { opacity: 0.15; }
+    24%  { opacity: 0.95; } 32% { opacity: 0.4; } 42% { opacity: 1; }
+    52%  { opacity: 0.6; }  60% { opacity: 1; }   100% { opacity: 1; }
+  }
+  @keyframes gsa-pop         {
+    0%   { opacity: 0; transform: scale(0.55); }
+    60%  { opacity: 1; transform: scale(1.07); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes gsa-bracket     {
+    0%   { opacity: 0; transform: scale(1.18); letter-spacing: 0.4em; filter: blur(2px); }
+    100% { opacity: 1; transform: scale(1);    letter-spacing: normal; filter: blur(0); }
+  }
+  @keyframes gsa-rise-fade   { from { opacity: 0; transform: translateY(10px) scale(0.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
 </style>
 </head>
 <body>
@@ -149,7 +186,7 @@ function PresenterMode({ project }) {
   const scale = Math.min(window.innerWidth/1920, window.innerHeight/1080);
   return React.createElement('div', { style: { position:'fixed', inset:0, background:'#000', display:'flex', alignItems:'center', justifyContent:'center' } },
     React.createElement('div', { style: { width:1920, height:1080, transform:'scale('+scale+')', transformOrigin:'center' } },
-      React.createElement(SlideView, { slide, lang:project.meta.lang||'en', accent:project.meta.accent||'#42dcc6', logoSrc:project.meta.logoSrc, clientName:project.meta.clientName, mode:'present' })
+      React.createElement(SlideView, { key: 'pres-'+i, slide, lang:project.meta.lang||'en', accent:project.meta.accent||'#42dcc6', logoSrc:project.meta.logoSrc, clientName:project.meta.clientName, mode:'present', project })
     ),
     i > 0 && React.createElement('button', { onClick:()=>setI(n=>n-1), style:{ position:'fixed', left:20, top:'50%', transform:'translateY(-50%)', background:'rgba(0,0,0,0.5)', border:'1px solid #464a6c', color:'#bbcac5', cursor:'pointer', padding:'14px 10px' } }, React.createElement('span', { className:'material-symbols-outlined' }, 'arrow_back')),
     i < project.slides.length-1 && React.createElement('button', { onClick:()=>setI(n=>n+1), style:{ position:'fixed', right:20, top:'50%', transform:'translateY(-50%)', background:'rgba(0,0,0,0.5)', border:'1px solid #464a6c', color:'#bbcac5', cursor:'pointer', padding:'14px 10px' } }, React.createElement('span', { className:'material-symbols-outlined' }, 'arrow_forward')),

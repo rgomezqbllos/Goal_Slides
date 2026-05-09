@@ -33,6 +33,95 @@ const tagColor = (tag) => {
 // BASE px that 1em equals at scale=1. All blocks use em after this.
 const BASE = 16;
 
+// ─── Animation catalog ────────────────────────────────────────────────────────
+// CSS keyframes (gsa-*) live in the host HTML <style> block.
+const BLOCK_ANIMATIONS = [
+  { id: 'none',        label: 'None',          keyframe: '',                 icon: 'block' },
+  { id: 'fade',        label: 'Fade in',       keyframe: 'gsa-fade',         icon: 'gradient' },
+  { id: 'slide-up',    label: 'Slide ↑',       keyframe: 'gsa-slide-up',     icon: 'arrow_upward' },
+  { id: 'slide-down',  label: 'Slide ↓',       keyframe: 'gsa-slide-down',   icon: 'arrow_downward' },
+  { id: 'slide-left',  label: 'Slide ←',       keyframe: 'gsa-slide-left',   icon: 'arrow_back' },
+  { id: 'slide-right', label: 'Slide →',       keyframe: 'gsa-slide-right',  icon: 'arrow_forward' },
+  { id: 'zoom-in',     label: 'Zoom in',       keyframe: 'gsa-zoom-in',      icon: 'zoom_in' },
+  { id: 'zoom-out',    label: 'Zoom out',      keyframe: 'gsa-zoom-out',     icon: 'zoom_out' },
+  { id: 'blur-in',     label: 'Blur in',       keyframe: 'gsa-blur-in',      icon: 'blur_on' },
+  { id: 'glow-in',     label: 'Glow in',       keyframe: 'gsa-glow-in',      icon: 'auto_awesome' },
+  { id: 'reveal-x',    label: 'Reveal →',      keyframe: 'gsa-reveal-x',     icon: 'east' },
+  { id: 'reveal-y',    label: 'Reveal ↓',      keyframe: 'gsa-reveal-y',     icon: 'south' },
+  { id: 'flicker',     label: 'Flicker',       keyframe: 'gsa-flicker',      icon: 'bolt' },
+  { id: 'pop',         label: 'Pop',           keyframe: 'gsa-pop',          icon: 'radio_button_checked' },
+  { id: 'bracket',     label: 'Bracket-in',    keyframe: 'gsa-bracket',      icon: 'data_object' },
+];
+
+const ITEM_ANIMATIONS = [
+  { id: 'none',        label: 'None',          keyframe: '',                 icon: 'block' },
+  { id: 'fade',        label: 'Stagger fade',  keyframe: 'gsa-fade',         icon: 'gradient' },
+  { id: 'slide-up',    label: 'Stagger ↑',     keyframe: 'gsa-slide-up',     icon: 'arrow_upward' },
+  { id: 'slide-left',  label: 'Slide ← cascade', keyframe: 'gsa-slide-left', icon: 'arrow_back' },
+  { id: 'slide-right', label: 'Slide → cascade', keyframe: 'gsa-slide-right',icon: 'arrow_forward' },
+  { id: 'pop',         label: 'Pop cascade',   keyframe: 'gsa-pop',          icon: 'radio_button_checked' },
+  { id: 'reveal-x',    label: 'Reveal cascade',keyframe: 'gsa-reveal-x',     icon: 'east' },
+  { id: 'rise-fade',   label: 'Rise & fade',   keyframe: 'gsa-rise-fade',    icon: 'unfold_more' },
+  { id: 'blur-in',     label: 'Blur cascade',  keyframe: 'gsa-blur-in',      icon: 'blur_on' },
+];
+
+const animKeyframe = (id, table) => (table.find(a => a.id === id) || {}).keyframe || '';
+
+// Build inline animation style for a block wrapper (used in 'present' mode).
+function buildBlockAnimStyle(animation, baseOrder) {
+  if (!animation || animation.type === 'none' || !animation.type) return null;
+  const kf = animKeyframe(animation.type, BLOCK_ANIMATIONS);
+  if (!kf) return null;
+  const order = animation.order ?? baseOrder ?? 0;
+  const baseDelay = animation.baseDelay ?? 140;
+  const delay = (animation.delay ?? order * baseDelay);
+  const duration = animation.duration ?? 750;
+  return {
+    animationName: kf,
+    animationDuration: `${duration}ms`,
+    animationDelay: `${delay}ms`,
+    animationFillMode: 'backwards',
+    animationTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  };
+}
+
+// Build per-item animation style (called from within blocks that have items).
+function buildItemAnimStyle(animation, blockBaseDelay, itemIndex) {
+  if (!animation) return null;
+  const itemId = animation.itemType;
+  if (!itemId || itemId === 'none') return null;
+  const kf = animKeyframe(itemId, ITEM_ANIMATIONS);
+  if (!kf) return null;
+  const stagger = animation.itemStagger ?? 90;
+  const dur = animation.itemDuration ?? 600;
+  const startAfterBlock = animation.itemAfterBlock ?? false;
+  const blockDur = animation.duration ?? 750;
+  const offset = startAfterBlock ? blockDur : 0;
+  return {
+    animationName: kf,
+    animationDuration: `${dur}ms`,
+    animationDelay: `${(blockBaseDelay || 0) + offset + itemIndex * stagger}ms`,
+    animationFillMode: 'backwards',
+    animationTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  };
+}
+
+// Walk all leaf cells in DFS order and assign sequential indices for default animation order.
+function computeOrderMap(rows) {
+  const map = new Map();
+  let i = 0;
+  function walk(arr) {
+    (arr || []).forEach(row => {
+      (row.cells || []).forEach(cell => {
+        if (cell.rows) walk(cell.rows);
+        else map.set(cell.id, i++);
+      });
+    });
+  }
+  walk(rows);
+  return map;
+}
+
 // ─── BLOCK: Title ─────────────────────────────────────────────────────────────
 function BlockTitle({ content, accent }) {
   const sz = { sm: '2em', md: '3em', lg: '4em', xl: '5em' }[content.size || 'lg'];
@@ -55,7 +144,7 @@ function BlockText({ content }) {
 }
 
 // ─── BLOCK: Checklist ────────────────────────────────────────────────────────
-function BlockChecklist({ content, accent }) {
+function BlockChecklist({ content, accent, animation, blockDelay }) {
   const items = content.items || [];
   const done = items.filter(i => i.done).length;
   return (
@@ -67,8 +156,10 @@ function BlockChecklist({ content, accent }) {
         </div>
       )}
       <div style={{ display:'flex', flexDirection:'column', gap:'0.44em', overflow:'hidden', flex:1 }}>
-        {items.map((item, i) => (
-          <div key={i} style={{ display:'flex', alignItems:'center', gap:'0.75em', padding:'0.69em 0.875em', background:'#0d1228', border:`1.5px solid ${item.done ? accent : '#1c2341'}`, flexShrink:0 }}>
+        {items.map((item, i) => {
+          const itemStyle = buildItemAnimStyle(animation, blockDelay, i);
+          return (
+          <div key={i} className={itemStyle ? 'gsa-anim' : ''} style={{ display:'flex', alignItems:'center', gap:'0.75em', padding:'0.69em 0.875em', background:'#0d1228', border:`1.5px solid ${item.done ? accent : '#1c2341'}`, flexShrink:0, ...(itemStyle || {}) }}>
             <div style={{ width:'1.125em', height:'1.125em', border:`2px solid ${item.done ? accent : '#464a6c'}`, background:item.done ? accent : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
               {item.done && <GIcon name="check" size="0.7em" color="#003730"/>}
             </div>
@@ -81,7 +172,8 @@ function BlockChecklist({ content, accent }) {
             </div>
             {item.dur && <span style={{ fontSize:'0.625em', color:'#859490', flexShrink:0 }}>{item.dur}</span>}
           </div>
-        ))}
+        );
+        })}
       </div>
       {items.length > 0 && (
         <div style={{ marginTop:'auto', paddingTop:'0.5em', flexShrink:0 }}>
@@ -96,7 +188,7 @@ function BlockChecklist({ content, accent }) {
 }
 
 // ─── BLOCK: Timeline ─────────────────────────────────────────────────────────
-function BlockTimeline({ content, accent }) {
+function BlockTimeline({ content, accent, animation, blockDelay }) {
   const phases = content.phases || [];
   return (
     <div style={{ display:'flex', flexDirection:'column', justifyContent:'center', padding:'1.5em 3em', height:'100%', gap:'1.5em' }}>
@@ -105,9 +197,11 @@ function BlockTimeline({ content, accent }) {
         {content.subtitle && <p style={{ fontSize:'0.75em', color:'#859490', marginTop:'0.25em' }}>{content.subtitle}</p>}
       </div>}
       <div style={{ display:'flex', alignItems:'flex-start', position:'relative' }}>
-        {phases.map((ph, i) => (
+        {phases.map((ph, i) => {
+          const itemStyle = buildItemAnimStyle(animation, blockDelay, i);
+          return (
           <React.Fragment key={i}>
-            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', flex:1 }}>
+            <div className={itemStyle ? 'gsa-anim' : ''} style={{ display:'flex', flexDirection:'column', alignItems:'center', flex:1, ...(itemStyle || {}) }}>
               <div style={{ width:'1.625em', height:'1.625em', border:`2px solid ${ph.active ? accent : '#464a6c'}`, background:ph.active ? accent : '#0d1228', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:'0.625em', position:'relative', zIndex:1 }}>
                 {ph.active ? <GIcon name="check" size="0.8em" color="#003730"/> : <span style={{ fontSize:'0.625em', color:'#464a6c', fontWeight:700 }}>{i+1}</span>}
               </div>
@@ -116,34 +210,38 @@ function BlockTimeline({ content, accent }) {
             </div>
             {i < phases.length - 1 && <div style={{ height:2, flex:0.4, background:ph.active ? accent : '#1c2341', marginTop:'0.75em', flexShrink:0 }}/>}
           </React.Fragment>
-        ))}
+        );
+        })}
       </div>
     </div>
   );
 }
 
 // ─── BLOCK: Metrics ──────────────────────────────────────────────────────────
-function BlockMetrics({ content, accent }) {
+function BlockMetrics({ content, accent, animation, blockDelay }) {
   const items = content.items || [];
   const cols = content.cols || Math.min(items.length, 3) || 3;
   return (
     <div style={{ display:'flex', flexDirection:'column', padding:'1.25em 1.75em', height:'100%', gap:'0.75em' }}>
       {content.title && <h3 style={{ fontSize:'1.25em', fontWeight:700, color:'#dde4e1', flexShrink:0 }}>{content.title}</h3>}
       <div style={{ display:'grid', gridTemplateColumns:`repeat(${cols},1fr)`, gap:'0.625em', flex:1, alignContent:'start' }}>
-        {items.map((item, i) => (
-          <div key={i} style={{ background:'#0d1228', padding:'1em 0.875em', borderLeft:`3px solid ${item.color || accent}` }}>
+        {items.map((item, i) => {
+          const itemStyle = buildItemAnimStyle(animation, blockDelay, i);
+          return (
+          <div key={i} className={itemStyle ? 'gsa-anim' : ''} style={{ background:'#0d1228', padding:'1em 0.875em', borderLeft:`3px solid ${item.color || accent}`, ...(itemStyle || {}) }}>
             <div style={{ fontSize:'0.625em', letterSpacing:'0.1em', textTransform:'uppercase', color:'#859490', marginBottom:'0.375em' }}>{item.label}</div>
             <div style={{ fontSize:'1.625em', fontWeight:800, color:item.color || accent }}>{item.value}</div>
             {item.trend && <div style={{ fontSize:'0.625em', color:accent, marginTop:'0.25em' }}>{item.trend}</div>}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
 
 // ─── BLOCK: Table ────────────────────────────────────────────────────────────
-function BlockTable({ content, accent }) {
+function BlockTable({ content, accent, animation, blockDelay }) {
   const headers = content.headers || [];
   const rows = content.rows || [];
   return (
@@ -155,13 +253,16 @@ function BlockTable({ content, accent }) {
             <tr>{headers.map((h,i) => <th key={i} style={{ padding:'0.5625em 0.875em', textAlign:'left', fontSize:'0.75em', fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase', color:accent, borderBottom:`2px solid ${accent}`, whiteSpace:'nowrap' }}>{h}</th>)}</tr>
           </thead>
           <tbody>
-            {rows.map((row,ri) => (
-              <tr key={ri} style={{ borderBottom:'1px solid #1c2341' }}>
+            {rows.map((row,ri) => {
+              const itemStyle = buildItemAnimStyle(animation, blockDelay, ri);
+              return (
+              <tr key={ri} className={itemStyle ? 'gsa-anim' : ''} style={{ borderBottom:'1px solid #1c2341', ...(itemStyle || {}) }}>
                 {(Array.isArray(row) ? row : [row]).map((cell,ci) => (
                   <td key={ci} style={{ padding:'0.5625em 0.875em', color:ci===0?'#dde4e1':'#bbcac5', fontWeight:ci===0?600:400 }}>{cell}</td>
                 ))}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -350,10 +451,15 @@ function BlockEmpty({ editorMode }) {
 
 // ─── Block Dispatcher ────────────────────────────────────────────────────────
 // scale = cell.fontSize || 1  → sets the root fontSize of the block wrapper
-function BlockRenderer({ cell, lang, accent, editorMode, isSelected, onTransformChange, onNavigate, project }) {
+// animateMode: when true (presenter), apply block + item animations.
+function BlockRenderer({ cell, lang, accent, editorMode, isSelected, onTransformChange, onNavigate, project, animateMode, autoOrder }) {
   const content = (cell.content && (cell.content[lang] || cell.content['en'] || cell.content[Object.keys(cell.content)[0]])) || {};
   const scale = cell.fontSize || 1;
   const t = cell.block;
+  const animation = cell.animation || null;
+  const blockAnimStyle = animateMode ? buildBlockAnimStyle(animation, autoOrder) : null;
+  const blockDelayMs = blockAnimStyle ? parseFloat(blockAnimStyle.animationDelay) : 0;
+  const itemAnim = animateMode ? animation : null;
 
   // Resolve chart data from linked table if configured
   let resolvedContent = content;
@@ -397,25 +503,34 @@ function BlockRenderer({ cell, lang, accent, editorMode, isSelected, onTransform
   let inner;
   if (t === 'title')     inner = <BlockTitle     content={resolvedContent} accent={accent}/>;
   else if (t === 'text')      inner = <BlockText      content={resolvedContent}/>;
-  else if (t === 'checklist') inner = <BlockChecklist content={resolvedContent} accent={accent}/>;
-  else if (t === 'timeline')  inner = <BlockTimeline  content={resolvedContent} accent={accent}/>;
-  else if (t === 'metrics')   inner = <BlockMetrics   content={resolvedContent} accent={accent}/>;
-  else if (t === 'table')     inner = <BlockTable     content={resolvedContent} accent={accent}/>;
+  else if (t === 'checklist') inner = <BlockChecklist content={resolvedContent} accent={accent} animation={itemAnim} blockDelay={blockDelayMs}/>;
+  else if (t === 'timeline')  inner = <BlockTimeline  content={resolvedContent} accent={accent} animation={itemAnim} blockDelay={blockDelayMs}/>;
+  else if (t === 'metrics')   inner = <BlockMetrics   content={resolvedContent} accent={accent} animation={itemAnim} blockDelay={blockDelayMs}/>;
+  else if (t === 'table')     inner = <BlockTable     content={resolvedContent} accent={accent} animation={itemAnim} blockDelay={blockDelayMs}/>;
   else if (t === 'chart')     inner = <BlockChart     content={resolvedContent} accent={accent}/>;
   else if (t === 'cta')       inner = <BlockCTA       content={resolvedContent} accent={accent} onNavigate={onNavigate}/>;
   else if (t === 'divider')   inner = <BlockDivider   content={resolvedContent} accent={accent}/>;
   else if (t === 'image')     inner = <BlockImage     content={resolvedContent} isSelected={isSelected} onTransformChange={onTransformChange}/>;
   else                        inner = <BlockEmpty editorMode={editorMode}/>;
 
-  return (
-    <div style={{ fontSize: scale * BASE, width:'100%', height:'100%', display:'flex', flexDirection:'column' }}>
-      {inner}
-    </div>
-  );
+  // When the block has its own animation (and items aren't standalone-animated),
+  // wrap the whole thing in an animated div. We always render the wrapper so the
+  // CSS animationName can be empty when none is set.
+  const wrapStyle = { fontSize: scale * BASE, width:'100%', height:'100%', display:'flex', flexDirection:'column' };
+  if (blockAnimStyle) {
+    return (
+      <div className="gsa-anim" style={{ ...wrapStyle, ...blockAnimStyle }}>
+        {inner}
+      </div>
+    );
+  }
+  return (<div style={wrapStyle}>{inner}</div>);
 }
 
 // ─── Slide View ──────────────────────────────────────────────────────────────
 function SlideView({ slide, lang, accent, logoSrc, clientName, mode, selPath, onSelect, onTransformChange, onNavigate, project }) {
+  const animateMode = mode === 'present';
+  const orderMap = animateMode ? computeOrderMap(slide.rows) : null;
 
   function renderRows(rows, pathPrefix) {
     return (rows || []).map((row, ri) => (
@@ -454,6 +569,8 @@ function SlideView({ slide, lang, accent, logoSrc, clientName, mode, selPath, on
                     onTransformChange={onTransformChange ? (updates) => onTransformChange(cellPath, updates) : null}
                     onNavigate={mode !== 'editor' ? onNavigate : null}
                     project={project}
+                    animateMode={animateMode}
+                    autoOrder={orderMap ? orderMap.get(cell.id) ?? 0 : 0}
                   />
               }
 
@@ -593,4 +710,4 @@ const SLIDE_TEMPLATES = [
     make:()=>({ id:uid(), label:'Launch',   bg:'dark', rows:[ makeRow(['1fr'],['title']), makeRow(['1fr'],['metrics']), makeRow(['1fr'],['cta']) ] }) },
 ];
 
-Object.assign(window, { BlockRenderer, SlideView, BLOCK_DEFAULTS, SLIDE_TEMPLATES, BLOCKS_META, uid, makeCell, makeRow, pathsEqual, isPathPrefix });
+Object.assign(window, { BlockRenderer, SlideView, BLOCK_DEFAULTS, SLIDE_TEMPLATES, BLOCKS_META, BLOCK_ANIMATIONS, ITEM_ANIMATIONS, uid, makeCell, makeRow, pathsEqual, isPathPrefix, computeOrderMap, buildBlockAnimStyle, buildItemAnimStyle });
