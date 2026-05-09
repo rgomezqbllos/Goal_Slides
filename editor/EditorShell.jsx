@@ -1790,62 +1790,127 @@ function DiagramTweaksForm({ def, tweaks, setTweaks, accent, lang = 'en' }) {
           );
         }
         if (f.type === 'colorStops') {
-          // Editable list of { at: number, color: '#hex' } sorted ascending.
+          // Editable list of { at: number /* % of journey 0..100 */, color }.
+          // We do NOT auto-sort — the row the user is editing must stay put.
+          // The renderer sorts internally when picking the active color.
           const list = Array.isArray(v) ? [...v] : [];
-          const update = (next) => {
-            // Sort ascending by `at` so animations cross stops in order.
-            const sorted = next.slice().sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
-            setField(f.key, sorted);
-          };
-          const updateAt    = (idx, key, value) =>
+          const update = (next) => setField(f.key, next);
+          const updateAt = (idx, key, value) =>
             update(list.map((s, i) => i === idx ? { ...s, [key]: value } : s));
-          const removeAt    = (idx) => update(list.filter((_, i) => i !== idx));
-          const addStop     = () => {
-            const last = list[list.length - 1] || { at: 0, color: '#42dcc6' };
-            const next = [...list, { at: (last.at ?? 0) + 10, color: last.color }];
-            update(next);
+          const removeAt = (idx) => update(list.filter((_, i) => i !== idx));
+          const move     = (idx, dir) => {
+            const j = idx + dir;
+            if (j < 0 || j >= list.length) return;
+            const arr = [...list];
+            [arr[idx], arr[j]] = [arr[j], arr[idx]];
+            update(arr);
           };
+          const addStop = () => {
+            const last = list[list.length - 1] || { at: 0, color: '#42dcc6' };
+            const nextAt = Math.min(100, Math.max(0, (parseFloat(last.at) || 0) + 10));
+            update([...list, { at: nextAt, color: last.color || '#42dcc6' }]);
+          };
+          // Build the gradient preview (sorted) so the user sees the journey
+          // independent of the row order in the editor.
+          const sorted = [...list].sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
+          const gradient = sorted.length === 0
+            ? '#1c2341'
+            : sorted.length === 1
+              ? sorted[0].color
+              : `linear-gradient(90deg, ${sorted.map(s => `${s.color} ${Math.max(0,Math.min(100,parseFloat(s.at)||0))}%`).join(', ')})`;
           return (
             <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <span style={{ fontSize: 10, color: '#bbcac5' }}>{tlabel(f.label, lang)}</span>
-              {list.map((s, idx) => (
-                <div key={idx} style={{
-                  background: '#0d1228', border: '1px solid #1c2341',
-                  padding: '6px 8px', display: 'flex', alignItems: 'center', gap: 6,
-                }}>
-                  <span style={{ fontSize: 9, color: '#859490', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                    ≥
-                  </span>
-                  <input type="number"
-                    value={Number.isFinite(+s.at) ? s.at : 0}
-                    onChange={e => updateAt(idx, 'at', parseFloat(e.target.value) || 0)}
-                    style={{
-                      width: 64, background: '#00001b', border: '1px solid #1c2341',
-                      color: '#dde4e1', fontFamily: 'Space Grotesk', fontSize: 11,
-                      padding: '4px 6px', outline: 'none', textAlign: 'right',
-                      fontVariantNumeric: 'tabular-nums',
-                    }}/>
-                  <input type="color"
-                    value={s.color || '#42dcc6'}
-                    onChange={e => updateAt(idx, 'color', e.target.value)}
-                    title={s.color}
-                    style={{
-                      width: 32, height: 22, padding: 0, cursor: 'pointer',
-                      background: '#00001b', border: '1px solid #1c2341',
-                    }}/>
-                  <span style={{ flex: 1, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#859490', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {s.color}
-                  </span>
-                  <button onClick={() => removeAt(idx)}
-                    title="Remove this stop"
-                    style={{
-                      background: 'transparent', border: 'none', color: '#ff7775',
-                      cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center',
-                    }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 14, fontVariationSettings: "'FILL' 0,'wght' 300" }}>close</span>
-                  </button>
-                </div>
-              ))}
+              <p style={{ fontSize: 9, color: '#3b426b', lineHeight: 1.5, margin: 0 }}>
+                {lang === 'es'
+                  ? 'Cada umbral es un % del recorrido (0 % = inicio, 100 % = final). Funciona igual en sentido ascendente o descendente.'
+                  : 'Each stop is a % of the journey (0 % = start, 100 % = end). Works for ascending and descending values alike.'}
+              </p>
+              {/* Gradient preview */}
+              <div style={{
+                width: '100%', height: 8, borderRadius: 2,
+                background: gradient, border: '1px solid #1c2341',
+              }}/>
+              {list.map((s, idx) => {
+                const pct = Number.isFinite(+s.at) ? s.at : 0;
+                return (
+                  <div key={idx} style={{
+                    background: '#0d1228', border: '1px solid #1c2341',
+                    padding: '6px 8px',
+                    display: 'grid',
+                    gridTemplateColumns: 'auto auto 1fr auto auto',
+                    alignItems: 'center', gap: 6,
+                  }}>
+                    <span style={{
+                      fontSize: 9, color: '#3b426b', fontWeight: 700,
+                      letterSpacing: '0.08em', minWidth: 18, textAlign: 'center',
+                    }}>{idx + 1}</span>
+                    <input type="color"
+                      value={s.color || '#42dcc6'}
+                      onChange={e => updateAt(idx, 'color', e.target.value)}
+                      title={s.color}
+                      style={{
+                        width: 36, height: 22, padding: 0, cursor: 'pointer',
+                        background: '#00001b', border: '1px solid #1c2341',
+                      }}/>
+                    <span style={{
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: 10, color: '#859490',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>{s.color}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <input type="number" min={0} max={100} step={1}
+                        value={pct}
+                        onChange={e => {
+                          // Allow free typing (incl. empty) without clobbering siblings.
+                          const raw = e.target.value;
+                          if (raw === '') return updateAt(idx, 'at', 0);
+                          const n = parseFloat(raw);
+                          if (Number.isFinite(n)) updateAt(idx, 'at', Math.max(0, Math.min(100, n)));
+                        }}
+                        style={{
+                          width: 50, background: '#00001b', border: '1px solid #1c2341',
+                          color: '#dde4e1', fontFamily: 'Space Grotesk', fontSize: 11,
+                          padding: '4px 6px', outline: 'none', textAlign: 'right',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}/>
+                      <span style={{ fontSize: 10, color: '#859490', fontWeight: 700 }}>%</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <button onClick={() => move(idx, -1)} disabled={idx === 0}
+                        title={lang === 'es' ? 'Subir' : 'Move up'}
+                        style={{
+                          background: 'transparent', border: '1px solid #1c2341',
+                          color: idx === 0 ? '#1c2341' : '#859490',
+                          cursor: idx === 0 ? 'default' : 'pointer',
+                          width: 18, height: 12, padding: 0, lineHeight: 0.5,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 12, fontVariationSettings: "'FILL' 0,'wght' 300" }}>keyboard_arrow_up</span>
+                      </button>
+                      <button onClick={() => move(idx, 1)} disabled={idx === list.length - 1}
+                        title={lang === 'es' ? 'Bajar' : 'Move down'}
+                        style={{
+                          background: 'transparent', border: '1px solid #1c2341',
+                          color: idx === list.length - 1 ? '#1c2341' : '#859490',
+                          cursor: idx === list.length - 1 ? 'default' : 'pointer',
+                          width: 18, height: 12, padding: 0, lineHeight: 0.5,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 12, fontVariationSettings: "'FILL' 0,'wght' 300" }}>keyboard_arrow_down</span>
+                      </button>
+                    </div>
+                    <button onClick={() => removeAt(idx)}
+                      title={lang === 'es' ? 'Quitar este umbral' : 'Remove this stop'}
+                      style={{
+                        background: 'transparent', border: 'none', color: '#ff7775',
+                        cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center',
+                      }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 14, fontVariationSettings: "'FILL' 0,'wght' 300" }}>close</span>
+                    </button>
+                  </div>
+                );
+              })}
               <button onClick={addStop} style={{
                 background: 'none', border: '1px dashed #464a6c', color: accent,
                 cursor: 'pointer', padding: '5px 8px',

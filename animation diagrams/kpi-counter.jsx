@@ -14,17 +14,39 @@ const KPI_EASINGS = {
   'ease-in-out': t => t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2) / 2,
 };
 
-// ─── Color picker by threshold ───────────────────────────────────────────────
-// stops = [{ at: number, color: '#hex' }] — picks the largest stop whose
-// `at` is ≤ value. Works for ascending or descending animations.
-function pickKPIColor(value, stops) {
+// ─── Color picker by % of journey ────────────────────────────────────────────
+// stops = [{ at: number /* 0..100 */, color: '#hex' }] — picks the largest
+// stop whose `at` is ≤ the current progress percent. Works for both
+// ascending (from < to) and descending (from > to) animations.
+function progressOf(value, from, to) {
+  const f = parseFloat(from), t = parseFloat(to);
+  if (!Number.isFinite(f) || !Number.isFinite(t) || f === t) return 1;
+  const p = (value - f) / (t - f);
+  return Math.max(0, Math.min(1, p));
+}
+
+function pickKPIColor(value, stops, from, to) {
   if (!Array.isArray(stops) || stops.length === 0) return '#42dcc6';
+  const pct = progressOf(value, from, to) * 100;
   const sorted = [...stops].sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
   let chosen = sorted[0].color || '#42dcc6';
   for (const s of sorted) {
-    if (value >= (s.at ?? 0)) chosen = s.color || chosen;
+    if (pct >= (s.at ?? 0)) chosen = s.color || chosen;
   }
   return chosen;
+}
+
+// Build a CSS linear-gradient that paints all the stops along a 0-100% strip.
+// Used by the optional progress bar to look like a multi-color buffer.
+function stopsGradientCss(stops) {
+  if (!Array.isArray(stops) || stops.length === 0) return '#42dcc6';
+  const sorted = [...stops].sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
+  const parts = sorted.map(s => {
+    const at = Math.max(0, Math.min(100, parseFloat(s.at) || 0));
+    return `${s.color || '#42dcc6'} ${at}%`;
+  });
+  if (parts.length === 1) return parts[0].split(' ')[0];
+  return `linear-gradient(90deg, ${parts.join(', ')})`;
 }
 
 // ─── Number formatting ──────────────────────────────────────────────────────
@@ -112,7 +134,7 @@ function KPICounter({
     return () => raf && cancelAnimationFrame(raf);
   }, [from, to, duration, easing]);
 
-  const color     = pickKPIColor(value, colorStops);
+  const color     = pickKPIColor(value, colorStops, from, to);
   const formatted = formatKPIValue(value, format, decimals);
   const parts     = splitKPI(formatted, format);
 
@@ -121,9 +143,8 @@ function KPICounter({
   const justifyH = align === 'left'  ? 'flex-start' : align === 'right'  ? 'flex-end' : 'center';
   const justifyV = valign === 'top'  ? 'flex-start' : valign === 'bottom' ? 'flex-end' : 'center';
 
-  // 0..1 progress for optional bar
-  const f = parseFloat(from), tval = parseFloat(to);
-  const progress = (tval === f) ? 1 : Math.max(0, Math.min(1, (value - f) / (tval - f)));
+  const progress = progressOf(value, from, to); // 0..1
+  const gradientCss = stopsGradientCss(colorStops);
 
   return (
     <div style={{
@@ -160,12 +181,27 @@ function KPICounter({
 
       {showProgress && (
         <div style={{
-          width: '70%', maxWidth: '24em', height: '0.18em',
-          background: '#1c2341', marginTop: '0.4em',
+          width: '80%', maxWidth: '28em', height: '0.5em',
+          background: '#0d1228', border: '1px solid #1c2341',
+          position: 'relative', overflow: 'hidden',
+          borderRadius: '0.25em', marginTop: '0.6em',
         }}>
+          {/* Multi-color gradient track painted across all stops */}
+          <div style={{ position: 'absolute', inset: 0, background: gradientCss }}/>
+          {/* Mask covering the unfilled portion — retreats as progress grows */}
           <div style={{
-            width: `${progress * 100}%`, height: '100%',
-            background: color, transition: 'width 0.08s linear',
+            position: 'absolute', top: 0, right: 0, bottom: 0,
+            width: `${(1 - progress) * 100}%`,
+            background: '#0d1228',
+            transition: 'width 0.08s linear',
+          }}/>
+          {/* Subtle border highlight on the filled edge */}
+          <div style={{
+            position: 'absolute', top: 0, bottom: 0,
+            left: `${progress * 100}%`,
+            width: 1, background: 'rgba(255,255,255,0.18)',
+            transition: 'left 0.08s linear',
+            display: progress > 0 && progress < 1 ? 'block' : 'none',
           }}/>
         </div>
       )}
@@ -173,4 +209,4 @@ function KPICounter({
   );
 }
 
-Object.assign(window, { KPICounter, formatKPIValue, pickKPIColor, KPI_EASINGS });
+Object.assign(window, { KPICounter, formatKPIValue, pickKPIColor, progressOf, stopsGradientCss, KPI_EASINGS });
