@@ -3,6 +3,48 @@
 
 const { useState: useS, useEffect: useE, useRef: useR, useCallback: useCB } = React;
 
+// ─── IndexedDB helpers (used to persist the FileSystemHandle) ────────────────
+const IDB_NAME = 'gs_slide_editor';
+const IDB_STORE = 'handles';
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbGet(key) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const r = tx.objectStore(IDB_STORE).get(key);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+}
+async function idbSet(key, value) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function idbDel(key) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 // ─── UI helpers ───────────────────────────────────────────────────────────────
 const EIcon = ({ name, size = 18, style = {} }) => (
   <span className="material-symbols-outlined"
@@ -1304,6 +1346,7 @@ body { background: #000; overflow: hidden; font-family: 'Space Grotesk', sans-se
 @keyframes gsa-pop         { 0% { opacity: 0; transform: scale(0.55); } 60% { opacity: 1; transform: scale(1.07); } 100% { opacity: 1; transform: scale(1); } }
 @keyframes gsa-bracket     { 0% { opacity: 0; transform: scale(1.18); letter-spacing: 0.4em; filter: blur(2px); } 100% { opacity: 1; transform: scale(1); letter-spacing: normal; filter: blur(0); } }
 @keyframes gsa-rise-fade   { from { opacity: 0; transform: translateY(10px) scale(0.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes gsa-spin        { from { transform: rotate(0); } to { transform: rotate(360deg); } }
 <\/style>
 </head>
 <body>
@@ -1345,6 +1388,73 @@ ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(
   a.download = `${(project.meta.clientName || 'presentation').replace(/\s+/g,'-').toLowerCase()}-slides.html`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ─── Autosave badge ──────────────────────────────────────────────────────────
+function AutosaveBadge({ fileName, status, accent, fsaAvailable, onConnect, onSaveAs, onDisconnect, onFlush, flash }) {
+  // Not connected yet
+  if (!fileName) {
+    return (
+      <button onClick={onConnect}
+        title={fsaAvailable
+          ? 'Pick a JSON file once — every change auto-saves to it (⌘S)'
+          : 'Auto-save needs Chrome / Edge / Brave. Click to download instead.'}
+        style={{
+          background: 'transparent',
+          border: `1px solid ${fsaAvailable ? accent : '#464a6c'}`,
+          color: fsaAvailable ? accent : '#bbcac5',
+          cursor: 'pointer', fontFamily: 'Space Grotesk, sans-serif',
+          fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
+          textTransform: 'uppercase', padding: '6px 12px',
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}>
+        <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 0,'wght' 300" }}>link</span>
+        Connect file
+      </button>
+    );
+  }
+
+  const map = {
+    saving:  { icon: 'sync',         label: 'Saving…',       color: accent },
+    saved:   { icon: 'cloud_done',   label: 'Auto-saved',    color: accent },
+    error:   { icon: 'error',        label: 'Save error',    color: '#ff7775' },
+    denied:  { icon: 'lock',         label: 'Click to grant access', color: '#fae374' },
+    idle:    { icon: 'cloud',        label: 'Linked',        color: '#bbcac5' },
+  };
+  const s = map[status] || map.idle;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <button
+        onClick={onFlush}
+        title={`File: ${fileName}\n${s.label} — click to save now (⌘S)`}
+        style={{
+          background: flash ? 'rgba(66,220,198,0.18)' : 'rgba(66,220,198,0.06)',
+          border: `1px solid ${s.color}`, color: s.color,
+          cursor: 'pointer', fontFamily: 'Space Grotesk, sans-serif',
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
+          padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 6,
+          transition: 'all 0.2s',
+        }}>
+        <span className="material-symbols-outlined"
+          style={{
+            fontSize: 14, fontVariationSettings: "'FILL' 0,'wght' 300",
+            animation: status === 'saving' ? 'gsa-spin 1s linear infinite' : 'none',
+          }}>{s.icon}</span>
+        <span style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fileName}</span>
+        <span style={{ color: '#464a6c', fontWeight: 600 }}>·</span>
+        <span style={{ fontSize: 9, opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{s.label}</span>
+      </button>
+      <button onClick={onSaveAs} title="Save to a different file (⇧⌘S)"
+        style={{ background: 'transparent', border: '1px solid #464a6c', color: '#bbcac5', cursor: 'pointer', padding: '5px 7px', display: 'flex', alignItems: 'center' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: 14, fontVariationSettings: "'FILL' 0,'wght' 300" }}>save_as</span>
+      </button>
+      <button onClick={onDisconnect} title="Stop auto-saving and unlink the file"
+        style={{ background: 'transparent', border: '1px solid #464a6c', color: '#859490', cursor: 'pointer', padding: '5px 7px', display: 'flex', alignItems: 'center' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: 14, fontVariationSettings: "'FILL' 0,'wght' 300" }}>link_off</span>
+      </button>
+    </div>
+  );
 }
 
 // ─── Main Editor Shell ────────────────────────────────────────────────────────
@@ -1544,63 +1654,129 @@ function EditorShell({ project, setProject, onPresent, onExportHTML }) {
   const defaultFileName = () =>
     `${(project.meta.clientName || 'presentation').replace(/\s+/g, '-').toLowerCase() || 'presentation'}-slides.json`;
 
-  const writeProjectToDisk = async (forceNewFile) => {
-    const json = JSON.stringify(project, null, 2);
-    // Path A — File System Access API (Chrome / Edge / Brave)
-    if (window.showSaveFilePicker) {
+  // ── Autosave to a real file via File System Access API ─────────────────────
+  // The handle is persisted in IndexedDB so the binding survives reloads.
+  const FSA_AVAILABLE = typeof window !== 'undefined' && !!window.showSaveFilePicker;
+  const [autoStatus, setAutoStatus] = useS('idle'); // idle | saving | saved | error | denied
+  const writeTimerRef = useR(null);
+  const skipNextAutosave = useR(true); // skip the very first project change after handle restore
+
+  const verifyPermission = async (handle, mode = 'readwrite') => {
+    if (!handle.queryPermission || !handle.requestPermission) return true;
+    let perm = await handle.queryPermission({ mode });
+    if (perm === 'granted') return true;
+    perm = await handle.requestPermission({ mode });
+    return perm === 'granted';
+  };
+
+  const writeHandle = async (handle, p) => {
+    const writable = await handle.createWritable();
+    await writable.write(JSON.stringify(p, null, 2));
+    await writable.close();
+  };
+
+  // Restore previously connected file handle on mount.
+  useE(() => {
+    if (!FSA_AVAILABLE) return;
+    let cancelled = false;
+    (async () => {
       try {
-        let handle = forceNewFile ? null : fileHandleRef.current;
-        if (!handle) {
-          handle = await window.showSaveFilePicker({
-            suggestedName: currentFileName || defaultFileName(),
-            types: [{ description: 'Goal Slides JSON', accept: { 'application/json': ['.json'] } }],
-          });
-          fileHandleRef.current = handle;
-          setCurrentFileName(handle.name);
-        }
-        const writable = await handle.createWritable();
-        await writable.write(json);
-        await writable.close();
-        return true;
-      } catch (err) {
-        if (err && err.name === 'AbortError') return false;
-        // Fall through to download fallback
-        console.warn('FSA save failed, falling back to download', err);
+        const stored = await idbGet('gs_file_handle');
+        if (cancelled || !stored) return;
+        fileHandleRef.current = stored;
+        setCurrentFileName(stored.name);
+        setAutoStatus('idle');
+      } catch (e) { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Connect (or replace) the linked file. Must be triggered by a user gesture.
+  const connectFile = async (forceNew = false) => {
+    if (!FSA_AVAILABLE) {
+      alert(
+        'Tu navegador no soporta auto-guardado a archivo.\n\n' +
+        'Usa Chrome, Edge o Brave para activar esta función.\n' +
+        'Mientras tanto puedes usar Export JSON para descargar el proyecto.'
+      );
+      return;
+    }
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: (!forceNew && currentFileName) || defaultFileName(),
+        types: [{ description: 'Goal Slides JSON', accept: { 'application/json': ['.json'] } }],
+      });
+      const ok = await verifyPermission(handle, 'readwrite');
+      if (!ok) { setAutoStatus('denied'); return; }
+      setAutoStatus('saving');
+      await writeHandle(handle, project);
+      fileHandleRef.current = handle;
+      setCurrentFileName(handle.name);
+      try { await idbSet('gs_file_handle', handle); } catch (e) { /* ignore */ }
+      skipNextAutosave.current = true; // we just wrote
+      setAutoStatus('saved');
+    } catch (err) {
+      if (err && err.name !== 'AbortError') {
+        console.error(err);
+        setAutoStatus('error');
       }
     }
-    // Path B — fallback download (Safari / Firefox / iframes without permission)
-    const name = currentFileName || defaultFileName();
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = name;
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-    if (!currentFileName) setCurrentFileName(name);
-    return true;
   };
 
-  const handleSave = async () => {
-    // Always persist to localStorage (instant, offline-safe)
-    window.saveProject(project);
-    const ok = await writeProjectToDisk(false);
-    if (ok) {
+  const disconnectFile = async () => {
+    fileHandleRef.current = null;
+    setCurrentFileName(null);
+    setAutoStatus('idle');
+    try { await idbDel('gs_file_handle'); } catch (e) { /* ignore */ }
+  };
+
+  // Auto-save: every project change writes to the linked file (debounced).
+  useE(() => {
+    if (!fileHandleRef.current) return;
+    if (skipNextAutosave.current) { skipNextAutosave.current = false; return; }
+    setAutoStatus('saving');
+    if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
+    writeTimerRef.current = setTimeout(async () => {
+      const handle = fileHandleRef.current;
+      if (!handle) return;
+      try {
+        const ok = await verifyPermission(handle, 'readwrite');
+        if (!ok) { setAutoStatus('denied'); return; }
+        await writeHandle(handle, project);
+        setAutoStatus('saved');
+      } catch (err) {
+        console.error(err);
+        setAutoStatus('error');
+      }
+    }, 500);
+    return () => { if (writeTimerRef.current) clearTimeout(writeTimerRef.current); };
+  }, [project]);
+
+  // Force flush — used by ⌘S as a "save now" gesture.
+  const flushNow = async () => {
+    if (writeTimerRef.current) { clearTimeout(writeTimerRef.current); writeTimerRef.current = null; }
+    const handle = fileHandleRef.current;
+    if (!handle) {
+      // No linked file yet — connect one
+      await connectFile(false);
+      return;
+    }
+    setAutoStatus('saving');
+    try {
+      const ok = await verifyPermission(handle, 'readwrite');
+      if (!ok) { setAutoStatus('denied'); return; }
+      await writeHandle(handle, project);
+      setAutoStatus('saved');
       setSavedFlash(true);
-      setTimeout(() => setSavedFlash(false), 1800);
+      setTimeout(() => setSavedFlash(false), 1500);
+    } catch (err) {
+      console.error(err);
+      setAutoStatus('error');
     }
   };
 
-  const handleSaveAs = async () => {
-    window.saveProject(project);
-    const ok = await writeProjectToDisk(true);
-    if (ok) {
-      setSavedFlash(true);
-      setTimeout(() => setSavedFlash(false), 1800);
-    }
-  };
-
-  // Keep keyboard shortcuts in sync with the latest project state.
-  saveHandlersRef.current = { save: handleSave, saveAs: handleSaveAs };
+  // Keep keyboard shortcuts in sync with the latest project / handle.
+  saveHandlersRef.current = { save: flushNow, saveAs: () => connectFile(true) };
 
   const accent = project.meta.accent || '#42dcc6';
 
@@ -1637,20 +1813,17 @@ function EditorShell({ project, setProject, onPresent, onExportHTML }) {
         <Btn onClick={() => exportAsHTML(project)}><EIcon name="html" size={13} />Export HTML</Btn>
         <Btn onClick={onPresent} active><EIcon name="play_arrow" size={16} />Present</Btn>
         <div style={{ width: 1, height: 24, background: '#1c2341' }} />
-        <Btn onClick={handleSave}
-          title={currentFileName ? `Save to ${currentFileName} (⌘S)` : 'Save project to file (⌘S)'}
-          style={{ borderColor: savedFlash ? accent : '#464a6c', background: savedFlash ? 'rgba(66,220,198,0.15)' : 'transparent', color: savedFlash ? accent : '#bbcac5', transition: 'all 0.3s' }}>
-          <EIcon name={savedFlash ? 'check' : 'save'} size={15} />
-          {savedFlash ? 'Saved!' : 'Save'}
-        </Btn>
-        <Btn small onClick={handleSaveAs} title="Save project as a new file (⇧⌘S)" style={{ padding: '6px 9px' }}>
-          <EIcon name="save_as" size={14} />
-        </Btn>
-        {currentFileName && (
-          <span title={currentFileName} style={{ fontSize: 9, color: '#859490', fontWeight: 600, letterSpacing: '0.04em', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {currentFileName}
-          </span>
-        )}
+        <AutosaveBadge
+          fileName={currentFileName}
+          status={autoStatus}
+          accent={accent}
+          fsaAvailable={FSA_AVAILABLE}
+          onConnect={() => connectFile(false)}
+          onSaveAs={() => connectFile(true)}
+          onDisconnect={disconnectFile}
+          onFlush={flushNow}
+          flash={savedFlash}
+        />
       </div>
 
       {/* ── MAIN ── */}
