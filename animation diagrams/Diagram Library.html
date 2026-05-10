@@ -148,7 +148,7 @@
     <div style="max-width:1280px; margin:0 auto;">
       <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:24px; padding-bottom:14px; border-bottom:1px solid #1c2341;">
         <h2 style="font-size:14px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; color:#dde4e1;">
-          Catalog · 2 live, 3 in design
+          Catalog · 3 live, 3 in design
         </h2>
         <span class="mono" style="font-size:11px; color:#859490; letter-spacing:0.08em;">
           GROUPS / FLOW · TIMELINE · DATA · SPATIAL
@@ -307,6 +307,46 @@
           </div>
         </div>
 
+        <!-- Live: Map Route -->
+        <a href="Map Route.html" class="card live">
+          <div class="card-thumb" style="background:#060819;">
+            <svg width="100%" height="100%" viewBox="0 0 300 200" preserveAspectRatio="xMidYMid meet">
+              <!-- Synthetic dim street network -->
+              <g stroke="#7a3d10" stroke-width="0.8" stroke-linecap="round" opacity="0.65" fill="none">
+                <path d="M 30 20 L 285 25 M 25 50 L 290 55 M 22 80 L 290 78 M 25 115 L 290 112 M 26 150 L 288 152 M 28 178 L 288 180"/>
+                <path d="M 50 12 L 50 188 M 90 14 L 86 188 M 130 12 L 130 188 M 170 14 L 170 188 M 210 12 L 210 188 M 250 14 L 250 188"/>
+                <path d="M 30 20 L 290 180 M 290 20 L 30 180" opacity="0.35"/>
+              </g>
+              <!-- Search overlay -->
+              <g stroke="#ffb066" stroke-width="1.4" stroke-linecap="round" opacity="0.95" fill="none">
+                <path d="M 90 50 L 130 50 L 170 50 L 170 80 L 210 80 L 210 115 L 170 115 L 130 115 L 90 115 L 90 80 Z"/>
+                <path d="M 130 50 L 130 80 L 170 80"/>
+              </g>
+              <!-- Found route -->
+              <path d="M 130 50 L 170 50 L 170 80 L 210 80 L 210 115 L 170 115" stroke="#ffffff" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+              <!-- Endpoints -->
+              <circle cx="130" cy="50" r="5" fill="#ffffff"/>
+              <circle cx="170" cy="115" r="5" fill="#ffffff"/>
+            </svg>
+            <div class="corner-accent"></div>
+            <span class="pill" style="position:absolute; top:12px; left:12px; color:#42dcc6; border-color:#42dcc6; background:rgba(10,14,34,0.9);">Live</span>
+          </div>
+          <div style="padding:20px 22px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+              <h3 style="font-size:18px; font-weight:700; color:#dde4e1;">Map Route</h3>
+              <span class="mono" style="font-size:10px; color:#859490; letter-spacing:0.08em;">DIAG-006</span>
+            </div>
+            <p style="font-size:13px; color:#bbcac5; line-height:1.55; margin-bottom:14px;">
+              Procedural city street network with an animated shortest-path search between two points. Loops on a configurable cadence.
+            </p>
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+              <span class="pill" style="color:#bec5eb; border-color:#bec5eb;">Spatial</span>
+              <span class="pill" style="color:#83e287; border-color:#83e287;">Pathfinding</span>
+              <span class="pill" style="color:#fae374; border-color:#fae374;">Loops</span>
+            </div>
+          </div>
+        </a>
+
         <!-- Suggest -->
         <div class="card" style="background:#060819; border-style:dashed; align-items:center; justify-content:center; padding:40px 22px; text-align:center;">
           <span class="material-symbols-outlined" style="font-size:36px; color:#42dcc6; margin-bottom:12px;">add_chart</span>
@@ -358,7 +398,7 @@
 
   <footer style="padding:24px 48px; border-top:1px solid #1c2341; display:flex; justify-content:space-between; align-items:center;">
     <span class="mono" style="font-size:10px; color:#859490; letter-spacing:0.12em;">GOAL.SYSTEMS / DIAGRAMS · v0.1</span>
-    <span class="mono" style="font-size:10px; color:#42dcc6; letter-spacing:0.12em;">5 PLUGINS · 2 LIVE</span>
+    <span class="mono" style="font-size:10px; color:#42dcc6; letter-spacing:0.12em;">6 PLUGINS · 3 LIVE</span>
   </footer>
 </div>
 

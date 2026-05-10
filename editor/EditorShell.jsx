@@ -1789,6 +1789,38 @@ function DiagramTweaksForm({ def, tweaks, setTweaks, accent, lang = 'en' }) {
             </div>
           );
         }
+        if (f.type === 'color') {
+          const cur = v || '#42dcc6';
+          return (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: 10, color: '#bbcac5' }}>{tlabel(f.label, lang)}</span>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: '#0d1228', border: '1px solid #1c2341',
+                padding: '6px 8px',
+              }}>
+                <input type="color" value={cur}
+                  onChange={e => setField(f.key, e.target.value)}
+                  title={cur}
+                  style={{
+                    width: 40, height: 24, padding: 0, cursor: 'pointer',
+                    background: '#00001b', border: '1px solid #1c2341',
+                  }}/>
+                <input type="text" value={cur}
+                  onChange={e => {
+                    const raw = e.target.value;
+                    // Accept partial typing; only commit on valid hex.
+                    if (/^#?[0-9a-fA-F]{0,8}$/.test(raw)) setField(f.key, raw.startsWith('#') ? raw : '#' + raw);
+                  }}
+                  style={{
+                    flex: 1, background: '#00001b', border: '1px solid #1c2341',
+                    color: '#dde4e1', fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 11, padding: '4px 8px', outline: 'none',
+                  }}/>
+              </div>
+            </div>
+          );
+        }
         if (f.type === 'colorStops') {
           // Editable list of { at: number /* % of journey 0..100 */, color }.
           // We do NOT auto-sort — the row the user is editing must stay put.
