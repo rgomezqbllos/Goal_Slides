@@ -451,6 +451,25 @@ function TweakText({ label, value, placeholder, onChange }) {
   );
 }
 
+function TweakArea({ label, value, placeholder, rows = 6, mono = true, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <textarea
+        className="twk-field"
+        rows={rows}
+        value={value || ''}
+        placeholder={placeholder || ''}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          resize: 'vertical', minHeight: 80,
+          fontFamily: mono ? "'JetBrains Mono', ui-monospace, Menlo, monospace" : "'Space Grotesk', sans-serif",
+          lineHeight: 1.45,
+        }}
+      />
+    </TweakRow>
+  );
+}
+
 function TweakNumber({ label, value, min, max, step = 1, unit = '', onChange }) {
   const clamp = (n) => {
     if (min != null && n < min) return min;
@@ -564,5 +583,5 @@ function TweakButton({ label, onClick, secondary = false }) {
 Object.assign(window, {
   useTweaks, TweaksPanel, TweakSection, TweakRow,
   TweakSlider, TweakToggle, TweakRadio, TweakSelect,
-  TweakText, TweakNumber, TweakColor, TweakButton,
+  TweakText, TweakArea, TweakNumber, TweakColor, TweakButton,
 });

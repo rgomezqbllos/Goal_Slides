@@ -303,6 +303,121 @@
     ],
     getComponent() { return window.MapRouteDiagram; },
   };
+
+  // ─── DIAG-007 · Chips ──────────────────────────────────────────────────────
+  REG.chips = {
+    id: 'chips',
+    label: { en: 'Chips', es: 'Etiquetas' },
+    description: 'Rows of pill-shaped chips. Responsive to text length, color palette with alternate / random / mono modes, optional pulse animation, and cell-relative alignment.',
+    icon: 'label',
+    galleryUrl: 'animation diagrams/Diagram Library.html',
+    studioUrl:  'animation diagrams/Chips.html',
+    defaultTweaks: {
+      chipsText:
+        'focus\ntech-equipped\ncreativity\ncoffee\ncommunity\n' +
+        'coworking\nproductivity\ninspiration\nflexible\n' +
+        'workshops\ncollaboration\nstudio',
+      rows: 3,
+      colorMode: 'alternate',
+      bg1: '#5a1f23', fg1: '#f0d871',
+      bg2: '#f0d871', fg2: '#5a1f23',
+      borderRadius: 999,
+      paddingX: 18,
+      paddingY: 8,
+      gap: 10,
+      fontSize: 16,
+      fontWeight: 600,
+      animation: 'none',
+      pulseDuration: 2400,
+      align: 'center',
+      valign: 'middle',
+      background: 'transparent',
+    },
+    tweaksToProps(t) {
+      t = t || {};
+      const palette = [
+        { bg: t.bg1 || '#5a1f23', fg: t.fg1 || '#f0d871' },
+        { bg: t.bg2 || '#f0d871', fg: t.fg2 || '#5a1f23' },
+      ];
+      return {
+        chipsText:     typeof t.chipsText === 'string' ? t.chipsText : '',
+        rows:          parseInt(t.rows, 10)          || 3,
+        colorMode:     t.colorMode     || 'alternate',
+        palette,
+        borderRadius:  parseInt(t.borderRadius, 10)  || 0,
+        paddingX:      parseInt(t.paddingX, 10)      || 0,
+        paddingY:      parseInt(t.paddingY, 10)      || 0,
+        gap:           parseInt(t.gap, 10)           || 0,
+        fontSize:      parseInt(t.fontSize, 10)      || 14,
+        fontWeight:    parseInt(t.fontWeight, 10)    || 500,
+        animation:     t.animation     || 'none',
+        pulseDuration: parseInt(t.pulseDuration, 10) || 2400,
+        align:         t.align         || 'center',
+        valign:        t.valign        || 'middle',
+        background:    t.background    || 'transparent',
+      };
+    },
+    schema: [
+      { type:'section', label:{ en:'Content', es:'Contenido' } },
+      { type:'string',  key:'chipsText',
+        label:{ en:'Chips (one per line · optional "text|#bg|#fg")',
+                 es:'Chips (uno por línea · opcional "texto|#fondo|#texto")' },
+        multiline:true, rows:8, mono:true,
+        placeholder:'focus\ntech-equipped\ncreativity\ncoffee|#5a1f23|#f0d871' },
+      { type:'number',  key:'rows', label:{ en:'Rows', es:'Filas' }, min:1, max:8, step:1 },
+
+      { type:'section', label:{ en:'Colors', es:'Colores' } },
+      { type:'select',  key:'colorMode', label:{ en:'Color mode', es:'Modo de color' },
+        options:['alternate','random','mono'],
+        optionLabels:{
+          alternate:{ en:'Alternate', es:'Alternar' },
+          random:   { en:'Random',    es:'Aleatorio' },
+          mono:     { en:'Single',    es:'Único' },
+        } },
+      { type:'color',   key:'bg1', label:{ en:'Color A · background', es:'Color A · fondo' } },
+      { type:'color',   key:'fg1', label:{ en:'Color A · text',       es:'Color A · texto' } },
+      { type:'color',   key:'bg2', label:{ en:'Color B · background', es:'Color B · fondo' } },
+      { type:'color',   key:'fg2', label:{ en:'Color B · text',       es:'Color B · texto' } },
+
+      { type:'section', label:{ en:'Shape & spacing', es:'Forma y espaciado' } },
+      { type:'number',  key:'borderRadius', label:{ en:'Border radius', es:'Redondeo' }, min:0, max:999, step:1, slider:true },
+      { type:'number',  key:'paddingX', label:{ en:'Padding X', es:'Margen interior X' }, min:4,  max:60, step:1 },
+      { type:'number',  key:'paddingY', label:{ en:'Padding Y', es:'Margen interior Y' }, min:2,  max:40, step:1 },
+      { type:'number',  key:'gap',      label:{ en:'Gap',       es:'Separación'        }, min:0,  max:48, step:1 },
+      { type:'number',  key:'fontSize', label:{ en:'Font size', es:'Tamaño del texto'  }, min:8,  max:48, step:1 },
+      { type:'number',  key:'fontWeight', label:{ en:'Font weight', es:'Grosor' }, min:300, max:900, step:100 },
+
+      { type:'section', label:{ en:'Animation', es:'Animación' } },
+      { type:'select',  key:'animation', label:{ en:'Animation', es:'Animación' },
+        options:['none','pulse','fade'],
+        optionLabels:{
+          none:  { en:'None',  es:'Ninguna' },
+          pulse: { en:'Pulse', es:'Palpitar' },
+          fade:  { en:'Fade',  es:'Desvanecer' },
+        } },
+      { type:'number',  key:'pulseDuration', label:{ en:'Animation duration (ms)', es:'Duración (ms)' }, min:400, max:8000, step:100 },
+
+      { type:'section', label:{ en:'Alignment', es:'Alineación' } },
+      { type:'select',  key:'align', label:{ en:'Horizontal align', es:'Alineación horizontal' },
+        options:['left','center','right'],
+        optionLabels:{
+          left:   { en:'Left',   es:'Izquierda' },
+          center: { en:'Center', es:'Centro' },
+          right:  { en:'Right',  es:'Derecha' },
+        } },
+      { type:'select',  key:'valign', label:{ en:'Vertical align', es:'Alineación vertical' },
+        options:['top','middle','bottom'],
+        optionLabels:{
+          top:    { en:'Top',    es:'Arriba' },
+          middle: { en:'Middle', es:'Centro' },
+          bottom: { en:'Bottom', es:'Abajo' },
+        } },
+
+      { type:'section', label:{ en:'Background', es:'Fondo' } },
+      { type:'color',   key:'background', label:{ en:'Cell background', es:'Fondo de la celda' } },
+    ],
+    getComponent() { return window.ChipsDiagram; },
+  };
 })();
 
 // ─── postMessage protocol (between editor host and library/studio iframes) ──

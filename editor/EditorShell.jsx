@@ -1777,15 +1777,29 @@ function DiagramTweaksForm({ def, tweaks, setTweaks, accent, lang = 'en' }) {
           return (
             <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <span style={{ fontSize: 10, color: '#bbcac5' }}>{tlabel(f.label, lang)}</span>
-              <input type="text"
-                value={v ?? ''}
-                placeholder={f.placeholder || ''}
-                onChange={e => setField(f.key, e.target.value)}
-                style={{
-                  background: '#0d1228', border: '1px solid #1c2341', color: '#dde4e1',
-                  fontFamily: 'Space Grotesk', fontSize: 11,
-                  padding: '6px 9px', outline: 'none',
-                }}/>
+              {f.multiline ? (
+                <textarea
+                  value={v ?? ''}
+                  rows={f.rows || 6}
+                  placeholder={f.placeholder || ''}
+                  onChange={e => setField(f.key, e.target.value)}
+                  style={{
+                    background: '#0d1228', border: '1px solid #1c2341', color: '#dde4e1',
+                    fontFamily: f.mono ? "'JetBrains Mono', ui-monospace, Menlo, monospace" : 'Space Grotesk',
+                    fontSize: 11, lineHeight: 1.5,
+                    padding: '7px 9px', outline: 'none', resize: 'vertical',
+                  }}/>
+              ) : (
+                <input type="text"
+                  value={v ?? ''}
+                  placeholder={f.placeholder || ''}
+                  onChange={e => setField(f.key, e.target.value)}
+                  style={{
+                    background: '#0d1228', border: '1px solid #1c2341', color: '#dde4e1',
+                    fontFamily: 'Space Grotesk', fontSize: 11,
+                    padding: '6px 9px', outline: 'none',
+                  }}/>
+              )}
             </div>
           );
         }
