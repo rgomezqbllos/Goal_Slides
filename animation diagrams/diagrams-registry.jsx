@@ -247,6 +247,9 @@
       searchColor:  '#ffb066',
       routeColor:   '#ffffff',
       nodeColor:    '#ffffff',
+      shape:    'square',
+      rotateX:  0,
+      rotateY:  0,
     },
     tweaksToProps(t) {
       t = t || {};
@@ -261,6 +264,9 @@
         searchColor:  t.searchColor  || '#ffb066',
         routeColor:   t.routeColor   || '#ffffff',
         nodeColor:    t.nodeColor    || '#ffffff',
+        shape:    t.shape   || 'square',
+        rotateX:  parseFloat(t.rotateX) || 0,
+        rotateY:  parseFloat(t.rotateY) || 0,
       };
     },
     schema: [
@@ -279,6 +285,21 @@
       { type:'color',   key:'searchColor',  label:{ en:'Search highlight', es:'Resaltado de búsqueda' } },
       { type:'color',   key:'routeColor',   label:{ en:'Found route',      es:'Ruta encontrada' } },
       { type:'color',   key:'nodeColor',    label:{ en:'Endpoints',        es:'Puntos' } },
+
+      { type:'section', label:{ en:'Shape', es:'Forma' } },
+      { type:'select',  key:'shape', label:{ en:'Shape', es:'Forma' },
+        options:['square','circle','ellipse','triangle','hexagon','diamond','octagon'],
+        optionLabels:{
+          square:   { en:'Square',    es:'Cuadrado' },
+          circle:   { en:'Circle',    es:'Círculo' },
+          ellipse:  { en:'Ellipse',   es:'Elipse' },
+          triangle: { en:'Triangle',  es:'Triángulo' },
+          hexagon:  { en:'Hexagon',   es:'Hexágono' },
+          diamond:  { en:'Diamond',   es:'Diamante' },
+          octagon:  { en:'Octagon',   es:'Octágono' },
+        } },
+      { type:'number',  key:'rotateX', label:{ en:'Tilt X (3D)', es:'Inclinación X (3D)' }, min:-60, max:60, step:1, slider:true },
+      { type:'number',  key:'rotateY', label:{ en:'Rotate Y (3D)', es:'Rotación Y (3D)' }, min:-60, max:60, step:1, slider:true },
     ],
     getComponent() { return window.MapRouteDiagram; },
   };

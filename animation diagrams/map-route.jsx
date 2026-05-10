@@ -100,6 +100,17 @@ function mrReconstructPath(prev, target) {
   return out;
 }
 
+// ─── Shape clip-path map ────────────────────────────────────────────────────
+const MR_SHAPE_CLIPS = {
+  square:   'none',
+  circle:   'circle(50% at 50% 50%)',
+  ellipse:  'ellipse(50% 35% at 50% 50%)',
+  triangle: 'polygon(50% 0%, 100% 100%, 0% 100%)',
+  hexagon:  'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
+  diamond:  'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
+  octagon:  'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)',
+};
+
 // ─── Component ──────────────────────────────────────────────────────────────
 function MapRouteDiagram({
   networkColor   = '#7a3d10',
@@ -112,6 +123,9 @@ function MapRouteDiagram({
   density        = 24,
   seed           = 1,
   loop           = true,
+  shape          = 'square',
+  rotateX        = 0,
+  rotateY        = 0,
 }) {
   // Virtual viewBox; SVG scales to the actual cell size via preserveAspectRatio.
   const VW = 600, VH = 600;
@@ -231,8 +245,20 @@ function MapRouteDiagram({
   const startPos = nodes[startNode];
   const endPos   = nodes[endNode];
 
+  const clipPath = MR_SHAPE_CLIPS[shape] || 'none';
+  const rx = parseFloat(rotateX) || 0;
+  const ry = parseFloat(rotateY) || 0;
+
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ width: '100%', height: '100%', position: 'relative', perspective: '800px' }}>
+      <div style={{
+        width: '100%', height: '100%',
+        transform: `rotateX(${rx}deg) rotateY(${ry}deg)`,
+        transformOrigin: 'center center',
+        clipPath: clipPath,
+        overflow: 'hidden',
+        position: 'relative',
+      }}>
       <svg viewBox={`0 0 ${VW} ${VH}`} preserveAspectRatio="xMidYMid meet"
            style={{ width: '100%', height: '100%', display: 'block' }}>
         {/* Base network — full graph, faint */}
@@ -272,6 +298,7 @@ function MapRouteDiagram({
           </g>
         )}
       </svg>
+      </div>
     </div>
   );
 }
