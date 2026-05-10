@@ -227,6 +227,61 @@
     ],
     getComponent() { return window.KPICounter; },
   };
+
+  // ─── DIAG-006 · Map Route ──────────────────────────────────────────────────
+  REG.mapRoute = {
+    id: 'mapRoute',
+    label: { en: 'Map Route', es: 'Ruta de mapa' },
+    description: 'Procedural city street network with an animated shortest-path search between two points.',
+    icon: 'map',
+    galleryUrl: 'animation diagrams/Diagram Library.html',
+    studioUrl:  'animation diagrams/Map Route.html',
+    defaultTweaks: {
+      density: 24,
+      seed: 1,
+      searchDuration: 3500,
+      pathDuration:   1200,
+      pauseDuration:  800,
+      loop: true,
+      networkColor: '#7a3d10',
+      searchColor:  '#ffb066',
+      routeColor:   '#ffffff',
+      nodeColor:    '#ffffff',
+    },
+    tweaksToProps(t) {
+      t = t || {};
+      return {
+        density:        parseInt(t.density, 10)        || 24,
+        seed:           parseInt(t.seed, 10)           || 1,
+        searchDuration: parseInt(t.searchDuration, 10) || 0,
+        pathDuration:   parseInt(t.pathDuration, 10)   || 0,
+        pauseDuration:  parseInt(t.pauseDuration, 10)  || 0,
+        loop:           !!t.loop,
+        networkColor: t.networkColor || '#7a3d10',
+        searchColor:  t.searchColor  || '#ffb066',
+        routeColor:   t.routeColor   || '#ffffff',
+        nodeColor:    t.nodeColor    || '#ffffff',
+      };
+    },
+    schema: [
+      { type:'section', label:{ en:'Network', es:'Red' } },
+      { type:'number',  key:'density', label:{ en:'Density', es:'Densidad' }, min:8, max:36, step:1 },
+      { type:'number',  key:'seed',    label:{ en:'Random seed', es:'Semilla aleatoria' }, min:1, max:9999, step:1 },
+
+      { type:'section', label:{ en:'Animation', es:'Animación' } },
+      { type:'number',  key:'searchDuration', label:{ en:'Search duration (ms)', es:'Duración de búsqueda (ms)' }, min:0, max:10000, step:50 },
+      { type:'number',  key:'pathDuration',   label:{ en:'Path duration (ms)',   es:'Duración del trazo (ms)'   }, min:0, max:5000,  step:50 },
+      { type:'number',  key:'pauseDuration',  label:{ en:'Pause (ms)',           es:'Pausa (ms)'                }, min:0, max:5000,  step:50 },
+      { type:'boolean', key:'loop',           label:{ en:'Loop', es:'Repetir' } },
+
+      { type:'section', label:{ en:'Colors', es:'Colores' } },
+      { type:'color',   key:'networkColor', label:{ en:'Streets',          es:'Calles' } },
+      { type:'color',   key:'searchColor',  label:{ en:'Search highlight', es:'Resaltado de búsqueda' } },
+      { type:'color',   key:'routeColor',   label:{ en:'Found route',      es:'Ruta encontrada' } },
+      { type:'color',   key:'nodeColor',    label:{ en:'Endpoints',        es:'Puntos' } },
+    ],
+    getComponent() { return window.MapRouteDiagram; },
+  };
 })();
 
 // ─── postMessage protocol (between editor host and library/studio iframes) ──
