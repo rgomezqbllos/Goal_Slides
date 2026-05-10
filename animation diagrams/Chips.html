@@ -59,8 +59,7 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "animation": "none",
   "pulseDuration": 2400,
   "align": "center",
-  "valign": "middle",
-  "background": "#ecbcbc"
+  "valign": "middle"
 }/*EDITMODE-END*/;
 
 (function applyHashTweaks() {
@@ -102,7 +101,6 @@ function App() {
               pulseDuration={t.pulseDuration}
               align={t.align}
               valign={t.valign}
-              background={t.background}
             />
           </DiagramFrame>
         </div>
@@ -123,7 +121,6 @@ function App() {
         <TweakText label="A · text"       value={t.fg1} onChange={v => setTweak('fg1', v)} />
         <TweakText label="B · background" value={t.bg2} onChange={v => setTweak('bg2', v)} />
         <TweakText label="B · text"       value={t.fg2} onChange={v => setTweak('fg2', v)} />
-        <TweakText label="Cell background" value={t.background} onChange={v => setTweak('background', v)} />
 
         <TweakSection label="Shape & spacing" />
         <TweakSlider label="Border radius" value={t.borderRadius} min={0} max={999} step={1}
@@ -275,7 +272,6 @@ function SidePanel({ t }) {
           { k: 'A · text',       v: t.fg1 },
           { k: 'B · background', v: t.bg2 },
           { k: 'B · text',       v: t.fg2 },
-          { k: 'Cell',           v: t.background },
         ].map((c) => (
           <div key={c.k} style={{ display:'flex', alignItems:'center', gap:10, fontSize:13, color:'#bbcac5' }}>
             <div style={{ width:14, height:14, background:c.v, border:'1px solid #1c2341' }}/>

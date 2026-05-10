@@ -331,7 +331,6 @@
       pulseDuration: 2400,
       align: 'center',
       valign: 'middle',
-      background: 'transparent',
     },
     tweaksToProps(t) {
       t = t || {};
@@ -354,7 +353,6 @@
         pulseDuration: parseInt(t.pulseDuration, 10) || 2400,
         align:         t.align         || 'center',
         valign:        t.valign        || 'middle',
-        background:    t.background    || 'transparent',
       };
     },
     schema: [
@@ -412,9 +410,6 @@
           middle: { en:'Middle', es:'Centro' },
           bottom: { en:'Bottom', es:'Abajo' },
         } },
-
-      { type:'section', label:{ en:'Background', es:'Fondo' } },
-      { type:'color',   key:'background', label:{ en:'Cell background', es:'Fondo de la celda' } },
     ],
     getComponent() { return window.ChipsDiagram; },
   };

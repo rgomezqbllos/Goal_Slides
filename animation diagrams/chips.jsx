@@ -1,8 +1,9 @@
 // chips.jsx
-// Rows of pill-style chips, responsive to text length, centered with even
-// spacing. Colors come from a small palette (alternating or random) and can be
-// overridden per chip via "text|#bg|#fg" syntax in the textarea. An optional
-// "pulse" animation gently breathes the chip background.
+// Rows of pill-style chips that always fit their cell. The diagram renders
+// chips at their natural size and uses a ResizeObserver-driven CSS scale to
+// shrink them uniformly when the cell is smaller than the natural content.
+//
+// Background is always transparent (the cell behind the diagram shows through).
 //
 // Props:
 //   chipsText       String, one chip per line. Lines may use "text|#bg|#fg".
@@ -17,11 +18,13 @@
 //   fontWeight      Chip text weight (300..900)
 //   animation       'none' | 'pulse' | 'fade'
 //   pulseDuration   ms (used by pulse / fade)
-//   align           'left'   | 'center' | 'right'    (horizontal, per row)
-//   valign          'top'    | 'middle' | 'bottom'   (vertical inside cell)
-//   background      Cell background color (or 'transparent')
+//   align           'left'   | 'center' | 'right'    (horizontal in the cell)
+//   valign          'top'    | 'middle' | 'bottom'   (vertical in the cell)
 
-const { useMemo: chUseMemo } = React;
+const {
+  useMemo: chUseMemo, useRef: chUseRef, useState: chUseState,
+  useLayoutEffect: chUseLayoutEffect, useEffect: chUseEffect,
+} = React;
 
 // ─── Small seeded RNG so 'random' mode is stable for the same chip count ────
 function chRng(seed) {
@@ -96,23 +99,55 @@ function ChipsDiagram({
   pulseDuration  = 2400,
   align          = 'center',
   valign         = 'middle',
-  background     = 'transparent',
 }) {
   const parsed = chUseMemo(() => chParseChips(chipsText), [chipsText]);
   const grid = chUseMemo(() => chSplitRows(parsed, rows), [parsed, rows]);
 
-  const justify =
+  // ── Scale-to-fit ──
+  // Render the chip stack at its natural size in `contentRef`, measure it via
+  // offsetWidth/offsetHeight (which ignore transforms), then scale uniformly
+  // so the whole stack fits the container with a small margin.
+  const containerRef = chUseRef(null);
+  const contentRef   = chUseRef(null);
+  const [scale, setScale] = chUseState(1);
+
+  chUseLayoutEffect(() => {
+    let raf = 0;
+    const recompute = () => {
+      if (!containerRef.current || !contentRef.current) return;
+      const cw = containerRef.current.clientWidth  - 16; // 8px breathing room each side
+      const ch = containerRef.current.clientHeight - 16;
+      const nw = contentRef.current.offsetWidth;
+      const nh = contentRef.current.offsetHeight;
+      if (cw <= 0 || ch <= 0 || nw <= 0 || nh <= 0) return;
+      const s = Math.min(1, cw / nw, ch / nh);
+      setScale(prev => Math.abs(prev - s) > 0.001 ? s : prev);
+    };
+    // Initial measure on the next frame so layout is stable.
+    raf = requestAnimationFrame(recompute);
+    const ro = new ResizeObserver(() => recompute());
+    if (containerRef.current) ro.observe(containerRef.current);
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
+  }, [chipsText, rows, fontSize, paddingX, paddingY, gap, fontWeight, borderRadius]);
+
+  const justifyH =
     align === 'left'  ? 'flex-start' :
     align === 'right' ? 'flex-end'   : 'center';
-  const alignItems =
+  const justifyV =
     valign === 'top'    ? 'flex-start' :
     valign === 'bottom' ? 'flex-end'   : 'center';
+  // Transform origin so that scale shrinks toward the chosen alignment corner,
+  // keeping the chip block visually anchored to the user's chosen side.
+  const originX = align  === 'left' ? '0%' : align  === 'right'  ? '100%' : '50%';
+  const originY = valign === 'top'  ? '0%' : valign === 'bottom' ? '100%' : '50%';
 
-  // Animation CSS (kept inline so the diagram has no external CSS dependency)
+  // Animation CSS — kept inline so the diagram has no external dependency.
+  // Pulse uses both transform (more visible at any scale) and box-shadow ring
+  // so the effect reads on any background.
   const animCss = `
     @keyframes gs-chip-pulse {
-      0%, 100% { filter: brightness(1); }
-      50%      { filter: brightness(1.15); }
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+      50%      { transform: scale(1.06); box-shadow: 0 0 0 6px rgba(255,255,255,0.10); }
     }
     @keyframes gs-chip-fade {
       0%, 100% { opacity: 1; }
@@ -120,55 +155,65 @@ function ChipsDiagram({
     }
   `;
 
-  // Per-render counter + fresh RNG so palette assignment is deterministic and
-  // stable across renders (seeded by content + row count).
+  // Per-render counter + fresh RNG so palette assignment is deterministic.
   let idx = 0;
   const rng = chRng((parsed.length || 1) * 7919 + (Number(rows) || 1));
 
   return (
-    <div style={{
+    <div ref={containerRef} style={{
       width: '100%', height: '100%',
-      display: 'flex', flexDirection: 'column',
-      justifyContent: alignItems, alignItems: 'stretch',
-      padding: `${Math.max(8, gap)}px ${Math.max(12, gap * 1.4)}px`,
-      gap: `${gap}px`,
-      background: background || 'transparent',
+      display: 'flex',
+      justifyContent: justifyH, alignItems: justifyV,
+      padding: '8px',
       overflow: 'hidden',
       boxSizing: 'border-box',
     }}>
       <style>{animCss}</style>
-      {grid.map((row, ri) => (
-        <div key={ri} style={{
-          display: 'flex', flexWrap: 'wrap',
-          justifyContent: justify, alignItems: 'center',
-          gap: `${gap}px`,
-        }}>
-          {row.map((c) => {
-            const pick = chPickColors(idx, colorMode, palette, rng);
-            const bg = c.bg || pick.bg;
-            const fg = c.fg || pick.fg;
-            const animName =
-              animation === 'pulse' ? 'gs-chip-pulse' :
-              animation === 'fade'  ? 'gs-chip-fade'  : 'none';
-            const delay = (idx * 137) % Math.max(400, pulseDuration);
-            idx += 1;
-            return (
-              <span key={`${ri}-${idx}`} style={{
-                display: 'inline-block',
-                padding: `${paddingY}px ${paddingX}px`,
-                background: bg, color: fg,
-                borderRadius: `${borderRadius}px`,
-                fontSize: `${fontSize}px`, fontWeight,
-                lineHeight: 1.2, whiteSpace: 'nowrap',
-                fontFamily: "'Space Grotesk', system-ui, sans-serif",
-                animation: animName === 'none'
-                  ? 'none'
-                  : `${animName} ${pulseDuration}ms ease-in-out ${delay}ms infinite`,
-              }}>{c.text}</span>
-            );
-          })}
-        </div>
-      ))}
+      <div ref={contentRef} style={{
+        display: 'inline-flex', flexDirection: 'column',
+        gap: `${gap}px`,
+        transform: `scale(${scale})`,
+        transformOrigin: `${originX} ${originY}`,
+        // Critical: do NOT shrink based on flex parent — we want the natural
+        // size for measurement. The CSS scale above is what fits-to-cell.
+        flex: '0 0 auto',
+      }}>
+        {grid.map((row, ri) => (
+          <div key={ri} style={{
+            display: 'flex', flexWrap: 'nowrap',
+            justifyContent: justifyH, alignItems: 'center',
+            gap: `${gap}px`,
+          }}>
+            {row.map((c) => {
+              const pick = chPickColors(idx, colorMode, palette, rng);
+              const bg = c.bg || pick.bg;
+              const fg = c.fg || pick.fg;
+              const animName =
+                animation === 'pulse' ? 'gs-chip-pulse' :
+                animation === 'fade'  ? 'gs-chip-fade'  : '';
+              const dur = Math.max(400, parseInt(pulseDuration, 10) || 2400);
+              const delay = (idx * 137) % dur;
+              const thisIdx = idx;
+              idx += 1;
+              return (
+                <span key={`${ri}-${thisIdx}`} style={{
+                  display: 'inline-block',
+                  padding: `${paddingY}px ${paddingX}px`,
+                  background: bg, color: fg,
+                  borderRadius: `${borderRadius}px`,
+                  fontSize: `${fontSize}px`, fontWeight,
+                  lineHeight: 1.2, whiteSpace: 'nowrap',
+                  fontFamily: "'Space Grotesk', system-ui, sans-serif",
+                  willChange: animName ? 'transform, box-shadow, opacity' : 'auto',
+                  animation: animName
+                    ? `${animName} ${dur}ms ease-in-out ${delay}ms infinite`
+                    : 'none',
+                }}>{c.text}</span>
+              );
+            })}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
