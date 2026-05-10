@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Goal Systems — Chips</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: #00001b;
+    color: #dde4e1;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  .grid-bg {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(66,220,198,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(66,220,198,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .gs-pill {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 3px 10px; border: 1px solid currentColor;
+    white-space: nowrap; display: inline-block;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div id="root"></div>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="chips.jsx"></script>
+<script type="text/babel">
+const { useState, useEffect, useMemo } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "chipsText": "focus\ntech-equipped\ncreativity\ncoffee\ncommunity\ncoworking\nproductivity\ninspiration\nflexible\nworkshops\ncollaboration\nstudio",
+  "rows": 3,
+  "colorMode": "alternate",
+  "bg1": "#5a1f23",
+  "fg1": "#f0d871",
+  "bg2": "#f0d871",
+  "fg2": "#5a1f23",
+  "borderRadius": 999,
+  "paddingX": 18,
+  "paddingY": 8,
+  "gap": 10,
+  "fontSize": 16,
+  "fontWeight": 600,
+  "animation": "none",
+  "pulseDuration": 2400,
+  "align": "center",
+  "valign": "middle",
+  "background": "#ecbcbc"
+}/*EDITMODE-END*/;
+
+(function applyHashTweaks() {
+  try {
+    const m = (location.hash || '').match(/(?:^#|&)tweaks=([^&]+)/);
+    if (!m) return;
+    const data = JSON.parse(decodeURIComponent(m[1]));
+    if (data && typeof data === 'object') Object.assign(TWEAK_DEFAULTS, data);
+  } catch (e) { /* ignore */ }
+})();
+const FROM_EDITOR = /(?:^|[?&])from=editor(?:&|$)/.test(location.search || '');
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const palette = [
+    { bg: t.bg1, fg: t.fg1 },
+    { bg: t.bg2, fg: t.fg2 },
+  ];
+  return (
+    <div style={{ position:'relative', zIndex:1, minHeight:'100vh', display:'flex', flexDirection:'column' }}>
+      {FROM_EDITOR && <EditorReturnBar tweaks={t} />}
+      <Header />
+      <main style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', padding:'48px' }}>
+        <div style={{ width:'100%', maxWidth:1180, display:'grid', gridTemplateColumns:'1fr 1.4fr', gap:48, alignItems:'stretch' }}>
+          <SidePanel t={t} />
+          <DiagramFrame>
+            <ChipsDiagram
+              chipsText={t.chipsText}
+              rows={t.rows}
+              colorMode={t.colorMode}
+              palette={palette}
+              borderRadius={t.borderRadius}
+              paddingX={t.paddingX}
+              paddingY={t.paddingY}
+              gap={t.gap}
+              fontSize={t.fontSize}
+              fontWeight={t.fontWeight}
+              animation={t.animation}
+              pulseDuration={t.pulseDuration}
+              align={t.align}
+              valign={t.valign}
+              background={t.background}
+            />
+          </DiagramFrame>
+        </div>
+      </main>
+
+      <TweaksPanel>
+        <TweakSection label="Content" />
+        <TweakArea label="Chips (text|#bg|#fg)" value={t.chipsText} rows={8}
+                   onChange={v => setTweak('chipsText', v)} />
+        <TweakSlider label="Rows" value={t.rows} min={1} max={8} step={1}
+                     onChange={v => setTweak('rows', v)} />
+
+        <TweakSection label="Colors" />
+        <TweakSelect label="Color mode" value={t.colorMode}
+                     options={['alternate','random','mono']}
+                     onChange={v => setTweak('colorMode', v)} />
+        <TweakText label="A · background" value={t.bg1} onChange={v => setTweak('bg1', v)} />
+        <TweakText label="A · text"       value={t.fg1} onChange={v => setTweak('fg1', v)} />
+        <TweakText label="B · background" value={t.bg2} onChange={v => setTweak('bg2', v)} />
+        <TweakText label="B · text"       value={t.fg2} onChange={v => setTweak('fg2', v)} />
+        <TweakText label="Cell background" value={t.background} onChange={v => setTweak('background', v)} />
+
+        <TweakSection label="Shape & spacing" />
+        <TweakSlider label="Border radius" value={t.borderRadius} min={0} max={999} step={1}
+                     onChange={v => setTweak('borderRadius', v)} />
+        <TweakSlider label="Padding X" value={t.paddingX} min={4} max={60} step={1}
+                     onChange={v => setTweak('paddingX', v)} />
+        <TweakSlider label="Padding Y" value={t.paddingY} min={2} max={40} step={1}
+                     onChange={v => setTweak('paddingY', v)} />
+        <TweakSlider label="Gap"       value={t.gap}      min={0} max={48} step={1}
+                     onChange={v => setTweak('gap', v)} />
+        <TweakSlider label="Font size" value={t.fontSize} min={8} max={48} step={1}
+                     onChange={v => setTweak('fontSize', v)} />
+        <TweakSlider label="Font weight" value={t.fontWeight} min={300} max={900} step={100}
+                     onChange={v => setTweak('fontWeight', v)} />
+
+        <TweakSection label="Animation" />
+        <TweakSelect label="Animation" value={t.animation}
+                     options={['none','pulse','fade']}
+                     onChange={v => setTweak('animation', v)} />
+        <TweakSlider label="Animation ms" value={t.pulseDuration} min={400} max={8000} step={100}
+                     onChange={v => setTweak('pulseDuration', v)} />
+
+        <TweakSection label="Alignment" />
+        <TweakSelect label="Horizontal" value={t.align}
+                     options={['left','center','right']}
+                     onChange={v => setTweak('align', v)} />
+        <TweakSelect label="Vertical" value={t.valign}
+                     options={['top','middle','bottom']}
+                     onChange={v => setTweak('valign', v)} />
+      </TweaksPanel>
+    </div>
+  );
+}
+
+function EditorReturnBar({ tweaks }) {
+  const send = (type) => {
+    try {
+      window.parent.postMessage(
+        type === 'select'
+          ? { type: 'gs:diagram-pick:select', diagramId: 'chips', tweaks }
+          : { type: 'gs:diagram-pick:cancel' },
+        '*'
+      );
+    } catch (e) { /* ignore */ }
+  };
+  return (
+    <div style={{
+      position:'sticky', top:0, zIndex:50,
+      background:'rgba(66,220,198,0.10)',
+      borderBottom:'1px solid #42dcc6',
+      padding:'10px 48px',
+      display:'flex', alignItems:'center', justifyContent:'space-between',
+    }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+        <span className="material-symbols-outlined" style={{ fontSize:18, color:'#42dcc6' }}>label</span>
+        <span style={{ fontSize:11, fontWeight:700, letterSpacing:'0.12em', color:'#42dcc6', textTransform:'uppercase' }}>
+          Configuring Chips for slide
+        </span>
+      </div>
+      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+        <button onClick={() => send('cancel')} style={{
+          background:'transparent', border:'1px solid #464a6c', color:'#bbcac5',
+          padding:'7px 14px', cursor:'pointer', fontFamily:"'Space Grotesk', sans-serif",
+          fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase',
+        }}>Cancel</button>
+        <button onClick={() => send('select')} style={{
+          background:'#42dcc6', border:'1px solid #42dcc6', color:'#003730',
+          padding:'7px 16px', cursor:'pointer', fontFamily:"'Space Grotesk', sans-serif",
+          fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase',
+          display:'flex', alignItems:'center', gap:6,
+        }}>
+          <span className="material-symbols-outlined" style={{ fontSize:14 }}>check</span>
+          Use in slide
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Header() {
+  return (
+    <header style={{ padding:'24px 48px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid #1c2341' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+        <a href="Diagram Library.html" style={{ display:'flex', alignItems:'center', gap:14, textDecoration:'none' }}>
+          <img src="assets/goal-logo-white.png" alt="Goal" style={{ height:24, opacity:0.95 }}/>
+          <span style={{ width:1, height:18, background:'#464a6c' }} />
+          <span style={{ fontSize:11, fontWeight:700, letterSpacing:'0.14em', color:'#42dcc6', textTransform:'uppercase' }}>
+            Diagram Library
+          </span>
+        </a>
+        <span style={{ fontSize:11, fontWeight:500, letterSpacing:'0.06em', color:'#859490', textTransform:'uppercase' }}>
+          / Chips · v0.1
+        </span>
+      </div>
+      <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+        <span className="gs-pill" style={{ color:'#fae374', borderColor:'#fae374' }}>Animated</span>
+        <span className="gs-pill" style={{ color:'#bec5eb', borderColor:'#bec5eb' }}>Responsive</span>
+      </div>
+    </header>
+  );
+}
+
+function SidePanel({ t }) {
+  const chipCount = (t.chipsText || '').split(/\r?\n/).filter(s => s.trim()).length;
+  return (
+    <aside style={{ display:'flex', flexDirection:'column', gap:24 }}>
+      <div>
+        <p style={{ fontSize:11, fontWeight:700, letterSpacing:'0.14em', textTransform:'uppercase', color:'#42dcc6', marginBottom:14 }}>
+          DIAG-007 · CHIPS
+        </p>
+        <h1 style={{ fontSize:48, fontWeight:900, lineHeight:1.05, letterSpacing:'-0.01em', color:'#dde4e1', marginBottom:18 }}>
+          Pill chips.<br/>Tag rows.
+        </h1>
+        <p style={{ fontSize:15, lineHeight:1.65, color:'#bbcac5', maxWidth:440 }}>
+          Multi-row pill chips that adapt to text length and stay centered in
+          their cell. Pick alternating, random or single-color modes; override
+          colors per chip with the inline <span className="mono" style={{ color:'#fae374' }}>text|#bg|#fg</span> syntax.
+          Optional pulse animation; fully responsive to the cell.
+        </p>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:0, border:'1px solid #1c2341' }}>
+        {[
+          { k: 'CHIPS',     v: String(chipCount).padStart(2,'0') },
+          { k: 'ROWS',      v: String(t.rows).padStart(2,'0') },
+          { k: 'MODE',      v: (t.colorMode || 'alternate').toUpperCase() },
+          { k: 'ANIMATION', v: (t.animation || 'none').toUpperCase() },
+          { k: 'RADIUS',    v: `${t.borderRadius}px` },
+          { k: 'ALIGN',     v: `${t.align[0].toUpperCase()} / ${t.valign[0].toUpperCase()}` },
+        ].map((s, i) => (
+          <div key={s.k} style={{
+            padding:'16px 18px',
+            borderRight: i % 2 === 0 ? '1px solid #1c2341' : 'none',
+            borderBottom: i < 4 ? '1px solid #1c2341' : 'none',
+            background:'#0d1228',
+          }}>
+            <div style={{ fontSize:10, letterSpacing:'0.12em', color:'#859490', marginBottom:6 }}>{s.k}</div>
+            <div style={{ fontSize:18, fontWeight:700, color:'#dde4e1', fontVariantNumeric:'tabular-nums' }}>{s.v}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+        <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.12em', color:'#859490', textTransform:'uppercase' }}>
+          Color palette
+        </div>
+        {[
+          { k: 'A · background', v: t.bg1 },
+          { k: 'A · text',       v: t.fg1 },
+          { k: 'B · background', v: t.bg2 },
+          { k: 'B · text',       v: t.fg2 },
+          { k: 'Cell',           v: t.background },
+        ].map((c) => (
+          <div key={c.k} style={{ display:'flex', alignItems:'center', gap:10, fontSize:13, color:'#bbcac5' }}>
+            <div style={{ width:14, height:14, background:c.v, border:'1px solid #1c2341' }}/>
+            <span style={{ minWidth:140 }}>{c.k}</span>
+            <span style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:11, color:'#859490' }}>{c.v}</span>
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+function DiagramFrame({ children }) {
+  return (
+    <div style={{
+      background:'#0a0e22', border:'1.5px solid #1c2341',
+      position:'relative', display:'flex', flexDirection:'column',
+      minHeight: 560,
+    }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                    padding:'12px 16px', borderBottom:'1px solid #1c2341' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <span className="material-symbols-outlined" style={{ fontSize:14, color:'#42dcc6' }}>label</span>
+          <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.14em', color:'#42dcc6', textTransform:'uppercase' }}>
+            CHIPS.LIVE
+          </span>
+        </div>
+        <div style={{ display:'flex', gap:6 }}>
+          {['#42dcc6','#fae374','#ff7775'].map((c,i) => <div key={i} style={{ width:8, height:8, background:c, opacity:0.7 }} />)}
+        </div>
+      </div>
+      <div style={{ flex:1, position:'relative', display:'flex', alignItems:'stretch', justifyContent:'stretch' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
