@@ -52,7 +52,10 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "networkColor": "#7a3d10",
   "searchColor": "#ffb066",
   "routeColor": "#ffffff",
-  "nodeColor": "#ffffff"
+  "nodeColor": "#ffffff",
+  "shape": "square",
+  "rotateX": 0,
+  "rotateY": 0
 }/*EDITMODE-END*/;
 
 (function applyHashTweaks() {
@@ -86,6 +89,9 @@ function App() {
               searchColor={t.searchColor}
               routeColor={t.routeColor}
               nodeColor={t.nodeColor}
+              shape={t.shape}
+              rotateX={t.rotateX}
+              rotateY={t.rotateY}
             />
           </DiagramFrame>
         </div>
@@ -113,6 +119,15 @@ function App() {
         <TweakText label="Search highlight" value={t.searchColor}  onChange={v => setTweak('searchColor', v)} />
         <TweakText label="Found route"    value={t.routeColor}   onChange={v => setTweak('routeColor', v)} />
         <TweakText label="Endpoints"      value={t.nodeColor}    onChange={v => setTweak('nodeColor', v)} />
+
+        <TweakSection label="Shape" />
+        <TweakSelect label="Shape" value={t.shape}
+                     options={['square','circle','ellipse','triangle','hexagon','diamond','octagon']}
+                     onChange={v => setTweak('shape', v)} />
+        <TweakSlider label="Tilt X (3D)" value={t.rotateX} min={-60} max={60} step={1}
+                     onChange={v => setTweak('rotateX', v)} />
+        <TweakSlider label="Rotate Y (3D)" value={t.rotateY} min={-60} max={60} step={1}
+                     onChange={v => setTweak('rotateY', v)} />
       </TweaksPanel>
     </div>
   );
@@ -210,11 +225,13 @@ function SidePanel({ t }) {
           { k: 'SEED',     v: String(t.seed).padStart(3,'0') },
           { k: 'SEARCH',   v: `${t.searchDuration}ms` },
           { k: 'LOOP',     v: t.loop ? 'ON' : 'OFF' },
+          { k: 'SHAPE',    v: (t.shape || 'square').toUpperCase() },
+          { k: '3D TILT',  v: `${t.rotateX||0}° / ${t.rotateY||0}°` },
         ].map((s, i) => (
           <div key={s.k} style={{
             padding:'16px 18px',
             borderRight: i % 2 === 0 ? '1px solid #1c2341' : 'none',
-            borderBottom: i < 2 ? '1px solid #1c2341' : 'none',
+            borderBottom: i < 4 ? '1px solid #1c2341' : 'none',
             background:'#0d1228',
           }}>
             <div style={{ fontSize:10, letterSpacing:'0.12em', color:'#859490', marginBottom:6 }}>{s.k}</div>
