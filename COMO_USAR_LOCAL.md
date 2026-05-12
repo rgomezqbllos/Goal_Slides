@@ -60,3 +60,5 @@ tu-proyecto/
 - Para exportar el proyecto usa el botón **Export JSON** y guarda el archivo.
 - Para recuperarlo en otra máquina usa **Import JSON**.
 - No se necesita backend, base de datos ni Node instalado (salvo para el servidor HTTP).
+
+python3 -m http.server 3000 --bind 127.0.0.1
