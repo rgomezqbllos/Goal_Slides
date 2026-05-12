@@ -1391,8 +1391,8 @@ function exportAsPDF(project, lang, accent) {
 *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important;}
 body{background:#00001b;font-family:'Space Grotesk',sans-serif;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}
 .material-symbols-outlined{font-family:'Material Symbols Outlined';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;white-space:nowrap;direction:ltr;-webkit-font-smoothing:antialiased;}
-.page{width:297mm;height:167mm;overflow:hidden;position:relative;page-break-after:always;break-after:page;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}
-@media print{html,body{margin:0;background:#00001b !important;}@page{size:297mm 167mm landscape;margin:0;}.page{page-break-after:always;break-after:page;}.print-btn{display:none;}}
+.page{width:297mm;height:210mm;overflow:hidden;position:relative;page-break-after:always;break-after:page;background:#00001b;display:flex;align-items:center;justify-content:center;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}
+@media print{html,body{margin:0;background:#00001b !important;}@page{size:297mm 210mm landscape;margin:0;}.page{page-break-after:always;break-after:page;}.print-btn{display:none;}}
 .print-btn{position:fixed;bottom:24px;right:24px;background:#42dcc6;color:#003730;border:none;padding:12px 24px;font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.08em;border-radius:4px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.4);}
 .instructions{position:fixed;bottom:24px;left:24px;background:#0d1228;border:1px solid #42dcc6;color:#bbcac5;padding:14px 18px;font-family:'Space Grotesk',sans-serif;font-size:11px;line-height:1.7;border-radius:4px;max-width:320px;}
 .instructions strong{color:#42dcc6;}
@@ -1419,7 +1419,7 @@ function PDFPages() {
   return React.createElement(React.Fragment, null,
     project.slides.map((slide, i) =>
       React.createElement('div', { key: slide.id, className: 'page' },
-        React.createElement('div', { style: { transform: 'scale(0.546)', transformOrigin: 'top left', width: 1920, height: 1080 } },
+        React.createElement('div', { style: { transform: 'scale(' + Math.min(1122/1920, 794/1080) + ')', transformOrigin: 'center center', width: 1920, height: 1080, flexShrink: 0 } },
           React.createElement(SlideView, { slide: {...slide, slideNum: (i+1)+' / '+project.slides.length}, lang, accent: accent||'#42dcc6', logoSrc: project.meta.logoSrc, clientName: project.meta.clientName, mode: 'present' })
         )
       )
