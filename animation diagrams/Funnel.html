@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Goal Systems — Funnel</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: #00001b;
+    color: #dde4e1;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  .grid-bg {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(66,220,198,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(66,220,198,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .gs-pill {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 3px 10px; border: 1px solid currentColor;
+    white-space: nowrap; display: inline-block;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div id="root"></div>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="funnel.jsx"></script>
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "stagesText": "Awareness|12,400|Top of funnel\nInterest|8,200|Marketing qualified\nConsideration|3,600|Product page views\nIntent|1,800|Trial starts\nConversion|540|Paid customers",
+  "colorTop": "#42dcc6",
+  "colorBottom": "#8b5cf6",
+  "showValues": true,
+  "showSub": true,
+  "showPercentages": true,
+  "showArrows": true,
+  "particleMode": "flow",
+  "particleDensity": 40,
+  "entranceAnim": true,
+  "glowIntensity": 60,
+  "labelSide": "right",
+  "align": "center",
+  "valign": "middle"
+}/*EDITMODE-END*/;
+
+(function applyHashTweaks() {
+  try {
+    const m = (location.hash || '').match(/(?:^#|&)tweaks=([^&]+)/);
+    if (!m) return;
+    const data = JSON.parse(decodeURIComponent(m[1]));
+    if (data && typeof data === 'object') Object.assign(TWEAK_DEFAULTS, data);
+  } catch (e) { /* ignore */ }
+})();
+const FROM_EDITOR = /(?:^|[?&])from=editor(?:&|$)/.test(location.search || '');
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const stageCount = (t.stagesText || '').split(/\r?\n/).filter(s => s.trim()).length;
+  return (
+    <div style={{ position:'relative', zIndex:1, minHeight:'100vh', display:'flex', flexDirection:'column' }}>
+      {FROM_EDITOR && <EditorReturnBar tweaks={t} />}
+      <Header />
+      <main style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', padding:'48px' }}>
+        <div style={{ width:'100%', maxWidth:1200, display:'grid', gridTemplateColumns:'1fr 1.5fr', gap:48, alignItems:'stretch' }}>
+          <SidePanel t={t} stageCount={stageCount} />
+          <DiagramFrame>
+            <FunnelDiagram
+              stagesText={t.stagesText}
+              colorTop={t.colorTop}
+              colorBottom={t.colorBottom}
+              showValues={t.showValues}
+              showSub={t.showSub}
+              showPercentages={t.showPercentages}
+              showArrows={t.showArrows}
+              particleMode={t.particleMode}
+              particleDensity={t.particleDensity}
+              entranceAnim={t.entranceAnim}
+              glowIntensity={t.glowIntensity}
+              labelSide={t.labelSide}
+              align={t.align}
+              valign={t.valign}
+            />
+          </DiagramFrame>
+        </div>
+      </main>
+
+      <TweaksPanel>
+        <TweakSection label="Stages" />
+        <TweakArea label="Stages (label|value|sublabel)" value={t.stagesText} rows={8}
+                   onChange={v => setTweak('stagesText', v)} />
+
+        <TweakSection label="Colors" />
+        <TweakText label="Top color"    value={t.colorTop}    onChange={v => setTweak('colorTop', v)} />
+        <TweakText label="Bottom color" value={t.colorBottom} onChange={v => setTweak('colorBottom', v)} />
+
+        <TweakSection label="Labels" />
+        <TweakSelect label="Label side" value={t.labelSide}
+                     options={['right','left']}
+                     onChange={v => setTweak('labelSide', v)} />
+        <TweakToggle label="Show values"      value={t.showValues}      onChange={v => setTweak('showValues', v)} />
+        <TweakToggle label="Show subtitles"   value={t.showSub}         onChange={v => setTweak('showSub', v)} />
+        <TweakToggle label="Show % of top"    value={t.showPercentages} onChange={v => setTweak('showPercentages', v)} />
+
+        <TweakSection label="Animation" />
+        <TweakToggle label="Entrance animation" value={t.entranceAnim} onChange={v => setTweak('entranceAnim', v)} />
+        <TweakToggle label="Flow arrows"        value={t.showArrows}   onChange={v => setTweak('showArrows', v)} />
+        <TweakSelect label="Particles" value={t.particleMode}
+                     options={['flow','none']}
+                     onChange={v => setTweak('particleMode', v)} />
+        <TweakSlider label="Particle density" value={t.particleDensity} min={0} max={100} step={5}
+                     onChange={v => setTweak('particleDensity', v)} />
+        <TweakSlider label="Glow intensity" value={t.glowIntensity} min={0} max={100} step={5}
+                     onChange={v => setTweak('glowIntensity', v)} />
+
+        <TweakSection label="Alignment" />
+        <TweakSelect label="Horizontal" value={t.align}
+                     options={['left','center','right']}
+                     onChange={v => setTweak('align', v)} />
+        <TweakSelect label="Vertical" value={t.valign}
+                     options={['top','middle','bottom']}
+                     onChange={v => setTweak('valign', v)} />
+      </TweaksPanel>
+    </div>
+  );
+}
+
+function EditorReturnBar({ tweaks }) {
+  const send = (type) => {
+    try {
+      window.parent.postMessage(
+        type === 'select'
+          ? { type: 'gs:diagram-pick:select', diagramId: 'funnel', tweaks }
+          : { type: 'gs:diagram-pick:cancel' },
+        '*'
+      );
+    } catch (e) { /* ignore */ }
+  };
+  return (
+    <div style={{
+      position:'sticky', top:0, zIndex:50,
+      background:'rgba(66,220,198,0.10)',
+      borderBottom:'1px solid #42dcc6',
+      padding:'10px 48px',
+      display:'flex', alignItems:'center', justifyContent:'space-between',
+    }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+        <span className="material-symbols-outlined" style={{ fontSize:18, color:'#42dcc6' }}>filter_alt</span>
+        <span style={{ fontSize:11, fontWeight:700, letterSpacing:'0.12em', color:'#42dcc6', textTransform:'uppercase' }}>
+          Configuring Funnel for slide
+        </span>
+      </div>
+      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+        <button onClick={() => send('cancel')} style={{
+          background:'transparent', border:'1px solid #464a6c', color:'#bbcac5',
+          padding:'7px 14px', cursor:'pointer', fontFamily:"'Space Grotesk', sans-serif",
+          fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase',
+        }}>Cancel</button>
+        <button onClick={() => send('select')} style={{
+          background:'#42dcc6', border:'1px solid #42dcc6', color:'#003730',
+          padding:'7px 16px', cursor:'pointer', fontFamily:"'Space Grotesk', sans-serif",
+          fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase',
+          display:'flex', alignItems:'center', gap:6,
+        }}>
+          <span className="material-symbols-outlined" style={{ fontSize:14 }}>check</span>
+          Use in slide
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Header() {
+  return (
+    <header style={{ padding:'24px 48px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid #1c2341' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+        <a href="Diagram Library.html" style={{ display:'flex', alignItems:'center', gap:14, textDecoration:'none' }}>
+          <img src="assets/goal-logo-white.png" alt="Goal" style={{ height:24, opacity:0.95 }}/>
+          <span style={{ width:1, height:18, background:'#464a6c' }} />
+          <span style={{ fontSize:11, fontWeight:700, letterSpacing:'0.14em', color:'#42dcc6', textTransform:'uppercase' }}>
+            Diagram Library
+          </span>
+        </a>
+        <span style={{ fontSize:11, fontWeight:500, letterSpacing:'0.06em', color:'#859490', textTransform:'uppercase' }}>
+          / Funnel · v0.1
+        </span>
+      </div>
+      <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+        <span className="gs-pill" style={{ color:'#fae374', borderColor:'#fae374' }}>Animated</span>
+        <span className="gs-pill" style={{ color:'#bec5eb', borderColor:'#bec5eb' }}>Draggable</span>
+        <span className="gs-pill" style={{ color:'#83e287', borderColor:'#83e287' }}>Particles</span>
+      </div>
+    </header>
+  );
+}
+
+function SidePanel({ t, stageCount }) {
+  const values = (t.stagesText || '').split(/\r?\n/).filter(s => s.trim())
+    .map(l => parseFloat((l.split('|')[1] || '').replace(/[^0-9.]/g, '')) || 0);
+  const maxVal = Math.max(...values, 1);
+  const convRate = values.length > 1 && values[0] > 0
+    ? ((values[values.length - 1] / values[0]) * 100).toFixed(1)
+    : '—';
+
+  return (
+    <aside style={{ display:'flex', flexDirection:'column', gap:24 }}>
+      <div>
+        <p style={{ fontSize:11, fontWeight:700, letterSpacing:'0.14em', textTransform:'uppercase', color:'#42dcc6', marginBottom:14 }}>
+          DIAG-008 · FUNNEL
+        </p>
+        <h1 style={{ fontSize:44, fontWeight:900, lineHeight:1.05, letterSpacing:'-0.01em', color:'#dde4e1', marginBottom:18 }}>
+          Conversion<br/>funnel.
+        </h1>
+        <p style={{ fontSize:15, lineHeight:1.65, color:'#bbcac5', maxWidth:420 }}>
+          Multi-stage funnel with staggered entrance, particle flow, dynamic glow
+          lights and shimmer sweeps. Labels are <span style={{ color:'#fae374' }}>draggable</span> — reposition
+          them freely. Color gradient from top to bottom, live arrows between stages.
+        </p>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:0, border:'1px solid #1c2341' }}>
+        {[
+          { k: 'STAGES',      v: String(stageCount).padStart(2,'0') },
+          { k: 'CONV. RATE',  v: `${convRate}%` },
+          { k: 'PARTICLES',   v: (t.particleMode || 'flow').toUpperCase() },
+          { k: 'GLOW',        v: `${t.glowIntensity}%` },
+          { k: 'LABEL SIDE',  v: (t.labelSide || 'right').toUpperCase() },
+          { k: 'ENTRANCE',    v: t.entranceAnim ? 'ON' : 'OFF' },
+        ].map((s, i) => (
+          <div key={s.k} style={{
+            padding:'16px 18px',
+            borderRight: i % 2 === 0 ? '1px solid #1c2341' : 'none',
+            borderBottom: i < 4 ? '1px solid #1c2341' : 'none',
+            background:'#0d1228',
+          }}>
+            <div style={{ fontSize:10, letterSpacing:'0.12em', color:'#859490', marginBottom:6 }}>{s.k}</div>
+            <div style={{ fontSize:18, fontWeight:700, color:'#dde4e1', fontVariantNumeric:'tabular-nums' }}>{s.v}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+        <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.12em', color:'#859490', textTransform:'uppercase' }}>
+          Stage breakdown
+        </div>
+        {values.slice(0, 6).map((v, i) => {
+          const pct = values[0] > 0 ? v / values[0] : 0;
+          const label = (t.stagesText || '').split(/\r?\n/).filter(s=>s.trim())[i]?.split('|')[0] || `Stage ${i+1}`;
+          return (
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ fontSize:11, color:'#bbcac5', minWidth:110, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{label}</div>
+              <div style={{ flex:1, height:4, background:'#1c2341', position:'relative' }}>
+                <div style={{ position:'absolute', left:0, top:0, height:'100%', width:`${pct*100}%`, background:'#42dcc6', transition:'width 0.4s' }} />
+              </div>
+              <div style={{ fontSize:11, color:'#859490', minWidth:36, textAlign:'right', fontVariantNumeric:'tabular-nums' }}>
+                {Math.round(pct*100)}%
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </aside>
+  );
+}
+
+function DiagramFrame({ children }) {
+  return (
+    <div style={{
+      background:'#0a0e22', border:'1.5px solid #1c2341',
+      position:'relative', display:'flex', flexDirection:'column',
+      minHeight: 580,
+    }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                    padding:'12px 16px', borderBottom:'1px solid #1c2341' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <span className="material-symbols-outlined" style={{ fontSize:14, color:'#42dcc6' }}>filter_alt</span>
+          <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.14em', color:'#42dcc6', textTransform:'uppercase' }}>
+            FUNNEL.LIVE
+          </span>
+        </div>
+        <div style={{ fontSize:10, color:'#464a6c', letterSpacing:'0.08em' }}>
+          DRAG LABELS TO REPOSITION
+        </div>
+        <div style={{ display:'flex', gap:6 }}>
+          {['#42dcc6','#fae374','#ff7775'].map((c,i) => <div key={i} style={{ width:8, height:8, background:c, opacity:0.7 }} />)}
+        </div>
+      </div>
+      <div style={{ flex:1, position:'relative', display:'flex', alignItems:'stretch', justifyContent:'stretch' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

@@ -304,6 +304,93 @@
     getComponent() { return window.MapRouteDiagram; },
   };
 
+  // ─── DIAG-008 · Funnel ────────────────────────────────────────────────────
+  REG.funnel = {
+    id: 'funnel',
+    label: { en: 'Funnel', es: 'Embudo' },
+    description: 'Conversion funnel with staggered entrance, particle flow, dynamic glow lights, shimmer sweeps, and draggable labels with arrow connectors.',
+    icon: 'filter_alt',
+    galleryUrl: 'animation diagrams/Diagram Library.html',
+    studioUrl:  'animation diagrams/Funnel.html',
+    defaultTweaks: {
+      stagesText:
+        'Awareness|12,400|Top of funnel\n' +
+        'Interest|8,200|Marketing qualified\n' +
+        'Consideration|3,600|Product page views\n' +
+        'Intent|1,800|Trial starts\n' +
+        'Conversion|540|Paid customers',
+      colorTop:        '#42dcc6',
+      colorBottom:     '#8b5cf6',
+      showValues:      true,
+      showSub:         true,
+      showPercentages: true,
+      showArrows:      true,
+      particleMode:    'flow',
+      particleDensity: 40,
+      entranceAnim:    true,
+      glowIntensity:   60,
+      labelSide:       'right',
+      align:           'center',
+      valign:          'middle',
+    },
+    tweaksToProps(t) {
+      t = t || {};
+      return {
+        stagesText:      typeof t.stagesText === 'string' ? t.stagesText : '',
+        colorTop:        t.colorTop     || '#42dcc6',
+        colorBottom:     t.colorBottom  || '#8b5cf6',
+        showValues:      t.showValues      !== false,
+        showSub:         t.showSub         !== false,
+        showPercentages: t.showPercentages !== false,
+        showArrows:      t.showArrows      !== false,
+        particleMode:    t.particleMode    || 'flow',
+        particleDensity: parseInt(t.particleDensity, 10) !== undefined ? parseInt(t.particleDensity, 10) : 40,
+        entranceAnim:    t.entranceAnim    !== false,
+        glowIntensity:   parseInt(t.glowIntensity, 10)   !== undefined ? parseInt(t.glowIntensity, 10)   : 60,
+        labelSide:       t.labelSide  || 'right',
+        align:           t.align      || 'center',
+        valign:          t.valign     || 'middle',
+      };
+    },
+    schema: [
+      { type:'section', label:{ en:'Stages', es:'Etapas' } },
+      { type:'string',  key:'stagesText',
+        label:{ en:'Stages (label|value|sublabel)', es:'Etapas (nombre|valor|subtítulo)' },
+        multiline:true, rows:7, mono:true,
+        placeholder:'Awareness|12,400|Top of funnel\nConversion|540|Paid customers' },
+
+      { type:'section', label:{ en:'Colors', es:'Colores' } },
+      { type:'color', key:'colorTop',    label:{ en:'Top color',    es:'Color superior' } },
+      { type:'color', key:'colorBottom', label:{ en:'Bottom color', es:'Color inferior' } },
+
+      { type:'section', label:{ en:'Labels', es:'Etiquetas' } },
+      { type:'select',  key:'labelSide', label:{ en:'Label side', es:'Lado de etiqueta' },
+        options:['right','left'],
+        optionLabels:{ right:{ en:'Right', es:'Derecha' }, left:{ en:'Left', es:'Izquierda' } } },
+      { type:'boolean', key:'showValues',      label:{ en:'Show values',       es:'Mostrar valores' } },
+      { type:'boolean', key:'showSub',         label:{ en:'Show subtitles',    es:'Mostrar subtítulos' } },
+      { type:'boolean', key:'showPercentages', label:{ en:'Show % of top',     es:'Mostrar % del total' } },
+
+      { type:'section', label:{ en:'Animation', es:'Animación' } },
+      { type:'boolean', key:'entranceAnim',  label:{ en:'Entrance animation', es:'Animación de entrada' } },
+      { type:'boolean', key:'showArrows',    label:{ en:'Flow arrows',        es:'Flechas de flujo' } },
+      { type:'select',  key:'particleMode',  label:{ en:'Particles', es:'Partículas' },
+        options:['flow','none'],
+        optionLabels:{ flow:{ en:'Flow', es:'Flujo' }, none:{ en:'None', es:'Ninguna' } } },
+      { type:'number',  key:'particleDensity', label:{ en:'Particle density', es:'Densidad de partículas' }, min:0, max:100, step:5, slider:true },
+      { type:'number',  key:'glowIntensity',   label:{ en:'Glow intensity',   es:'Intensidad de brillo' },  min:0, max:100, step:5, slider:true },
+
+      { type:'section', label:{ en:'Alignment', es:'Alineación' } },
+      { type:'select',  key:'align',  label:{ en:'Horizontal', es:'Horizontal' },
+        options:['left','center','right'],
+        optionLabels:{ left:{ en:'Left', es:'Izquierda' }, center:{ en:'Center', es:'Centro' }, right:{ en:'Right', es:'Derecha' } } },
+      { type:'select',  key:'valign', label:{ en:'Vertical', es:'Vertical' },
+        options:['top','middle','bottom'],
+        optionLabels:{ top:{ en:'Top', es:'Arriba' }, middle:{ en:'Middle', es:'Centro' }, bottom:{ en:'Bottom', es:'Abajo' } } },
+    ],
+    getComponent() { return window.FunnelDiagram; },
+  };
+
   // ─── DIAG-007 · Chips ──────────────────────────────────────────────────────
   REG.chips = {
     id: 'chips',
